@@ -1,0 +1,378 @@
+{
+  "escola": "COLÉGIO ESTADUAL PADRE NICOLAU BALTAZAR - EF M",
+  "municipio": "Castro - PR",
+  "avaliacao": "Simulado PSS 1 / UEPG - Matemática (3º Trimestre - 2026)",
+  "padrao": "PSS 1 / UEPG - Exatamente 4 proposições (01, 02, 04, 08) com soma máxima 15",
+  "questoes": [
+    {
+      "id": "Q01",
+      "tema": "Potenciação, Razão e Proporção",
+      "nivel": "Muito Fácil",
+      "enunciado": "Sobre propriedades de potenciação, razão e proporção aplicadas a situações cotidianas, assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "O valor numérico da expressão $2^3 + 3^2 - 5^0$ é igual a $16$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "Em uma turma com $12$ meninos e $18$ meninas, a razão entre o número de meninos e o total de estudantes da turma é $\\frac{2}{5}$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "Para quaisquer números reais não nulos $a$ e $b$, tem-se $(a + b)^2 = a^2 + b^2$.",
+          "correta": false
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "Se $4$ impressoras idênticas imprimem um lote de provas em $30$ minutos, então $6$ dessas mesmas impressoras, trabalhando no mesmo ritmo, imprimem o mesmo lote em $20$ minutos.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 11,
+        "B": 13,
+        "C": 7
+      }
+    },
+    {
+      "id": "Q02",
+      "tema": "Área e Perímetro",
+      "nivel": "Muito Fácil",
+      "enunciado": "Um terreno retangular possui $15\\text{ m}$ de comprimento por $8\\text{ m}$ de largura. Com base nessas dimensões, assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "O perímetro desse terreno é igual a $46\\text{ m}$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A área total desse terreno mede $23\\text{ m}^2$.",
+          "correta": false
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A diagonal desse terreno retangular mede exatamente $17\\text{ m}$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "Se dobrarmos apenas o comprimento do terreno, mantendo a largura de $8\\text{ m}$, o perímetro também dobrará.",
+          "correta": false
+        }
+      ],
+      "somas": {
+        "A": 5,
+        "B": 3,
+        "C": 10
+      }
+    },
+    {
+      "id": "Q03",
+      "tema": "Estatística: Média, Moda e Mediana",
+      "nivel": "Fácil",
+      "enunciado": "As notas obtidas por um grupo de $7$ estudantes em uma atividade avaliativa de Matemática foram: $5,0$; $7,0$; $6,0$; $8,0$; $7,0$; $9,0$; $7,0$. Considerando esse conjunto de dados, assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A média aritmética simples dessas notas é igual a $7,5$.",
+          "correta": false
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A moda desse conjunto de notas é $7,0$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A mediana das notas apresentadas é $7,0$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A amplitude total desse conjunto de notas é igual a $4,0$.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 14,
+        "B": 7,
+        "C": 11
+      }
+    },
+    {
+      "id": "Q04",
+      "tema": "Relações Métricas no Triângulo Retângulo",
+      "nivel": "Fácil",
+      "enunciado": "Em um triângulo retângulo $ABC$, reto em $A$, a hipotenusa $BC$ mede $10\\text{ cm}$ e a projeção ortogonal do cateto $AB$ sobre a hipotenusa mede $3,6\\text{ cm}$. Assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A projeção ortogonal do cateto $AC$ sobre a hipotenusa mede $6,4\\text{ cm}$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A medida do cateto $AB$ é igual a $6\\text{ cm}$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A medida do cateto $AC$ é igual a $9\\text{ cm}$.",
+          "correta": false
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A altura $h$ relativa à hipotenusa mede $4,8\\text{ cm}$.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 11,
+        "B": 13,
+        "C": 7
+      }
+    },
+    {
+      "id": "Q05",
+      "tema": "Razões Trigonométricas (Sen, Cos, Tg)",
+      "nivel": "Fácil",
+      "enunciado": "Uma escada rígida de $6\\text{ m}$ de comprimento está apoiada em uma parede vertical perfeitamente perpendicular ao solo plano e horizontal, formando um ângulo de $60^\\circ$ com o solo. Assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A distância entre o pé da escada e a base da parede é igual a $3\\text{ m}$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A altura atingida pelo topo da escada na parede é igual a $3\\text{ m}$.",
+          "correta": false
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "O ângulo formado entre a escada e a parede vertical mede $30^\\circ$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A altura atingida pelo topo da escada na parede é de $3\\sqrt{3}\\text{ m}$.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 13,
+        "B": 11,
+        "C": 14
+      }
+    },
+    {
+      "id": "Q06",
+      "tema": "Dispersão: Desvio Médio, Variância e Desvio Padrão",
+      "nivel": "Médio",
+      "enunciado": "Um laboratório registrou, durante cinco dias consecutivos, as seguintes temperaturas (em $^\\circ\\text{C}$) em uma estufa: $18, 20, 20, 20, 22$. Com base nesses dados, assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A média aritmética das temperaturas registradas é $20^\\circ\\text{C}$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "O desvio médio absoluto dessa amostra é igual a $0,8^\\circ\\text{C}$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A variância populacional ($\\sigma^2$) desse conjunto de temperaturas é igual a $1,6\\ (^\\circ\\text{C})^2$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "Se todas as medições fossem iguais a $20^\\circ\\text{C}$, o desvio padrão seria igual a $1$.",
+          "correta": false
+        }
+      ],
+      "somas": {
+        "A": 7,
+        "B": 14,
+        "C": 13
+      }
+    },
+    {
+      "id": "Q07",
+      "tema": "Probabilidade e Análise de Dados",
+      "nivel": "Médio",
+      "enunciado": "Em uma pesquisa com $200$ estudantes do Ensino Médio sobre o meio de transporte utilizado para ir à escola, constatou-se que: $45\\%$ vão a pé, $30\\%$ utilizam transporte escolar, $15\\%$ vão de bicicleta e $10\\%$ vão de carro. Escolhendo-se ao acaso um desses estudantes, assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A probabilidade de o estudante escolhido ir de bicicleta é igual a $\\frac{1}{15}$.",
+          "correta": false
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "Exatamente $90$ estudantes entrevistados vão a pé para a escola.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A probabilidade de o estudante escolhido utilizar transporte escolar ou carro é igual a $0,40$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A probabilidade de o estudante escolhido NÃO ir a pé é igual a $55\\%$.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 14,
+        "B": 11,
+        "C": 7
+      }
+    },
+    {
+      "id": "Q08",
+      "tema": "Trigonometria Aplicada",
+      "nivel": "Médio",
+      "enunciado": "Para determinar a largura $L$ de um rio de margens paralelas sem atravessá-lo, um topógrafo marcou dois pontos $A$ e $B$ em uma mesma margem, distantes $40\\text{ m}$ entre si. De $A$, avistou uma árvore $C$ na margem oposta sob um ângulo reto ($\\angle BAC = 90^\\circ$) em relação ao segmento $AB$. De $B$, avistou a mesma árvore $C$ sob um ângulo $\\angle ABC = 30^\\circ$. Assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A largura $L$ do rio corresponde à medida do cateto $AC$, oposto ao ângulo de $30^\\circ$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A largura exata do rio é $\\frac{40\\sqrt{3}}{3}\\text{ m}$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "A distância em linha reta entre o ponto $B$ e a árvore $C$ é igual a $40\\sqrt{3}\\text{ m}$.",
+          "correta": false
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "Adotando $\\sqrt{3} \\approx 1,73$, a largura do rio é aproximadamente $23,07\\text{ m}$.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 11,
+        "B": 7,
+        "C": 13
+      }
+    },
+    {
+      "id": "Q09",
+      "tema": "Estatística: Quartis e Dispersão",
+      "nivel": "Difícil",
+      "enunciado": "Considere a seguinte distribuição ordenada do tempo diário (em minutos) dedicado ao estudo extraclasse por $11$ estudantes: $20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 95$. Assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "O segundo quartil ($Q_2$), que coincide com a mediana da distribuição, é igual a $45$ minutos.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "O primeiro quartil ($Q_1$) dessa amostra é igual a $25$ minutos.",
+          "correta": false
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "O terceiro quartil ($Q_3$) dessa amostra é igual a $70$ minutos.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A amplitude interquartílica ($AIQ = Q_3 - Q_1$) é igual a $40$ minutos.",
+          "correta": true
+        }
+      ],
+      "somas": {
+        "A": 13,
+        "B": 14,
+        "C": 11
+      }
+    },
+    {
+      "id": "Q10",
+      "tema": "Geometria Plana Integrada",
+      "nivel": "Difícil",
+      "enunciado": "Um trapézio retângulo $ABCD$ possui bases paralelas $AB$ (base maior) e $CD$ (base menor), com lados não paralelos $AD$ (perpendicular às bases) e $BC$ (oblíquo). Sabe-se que $CD = 6\\text{ cm}$, a altura $AD = 4\\sqrt{3}\\text{ cm}$ e o ângulo interno $\\angle ABC = 60^\\circ$. Assinale o que for correto.",
+      "proposicoes": [
+        {
+          "cod": "01",
+          "peso": 1,
+          "texto": "A projeção do lado oblíquo $BC$ sobre a base maior $AB$ mede $4\\text{ cm}$.",
+          "correta": true
+        },
+        {
+          "cod": "02",
+          "peso": 2,
+          "texto": "A base maior $AB$ mede $10\\text{ cm}$.",
+          "correta": true
+        },
+        {
+          "cod": "04",
+          "peso": 4,
+          "texto": "O lado oblíquo $BC$ mede $8\\text{ cm}$.",
+          "correta": true
+        },
+        {
+          "cod": "08",
+          "peso": 8,
+          "texto": "A área desse trapézio é igual a $64\\sqrt{3}\\text{ cm}^2$.",
+          "correta": false
+        }
+      ],
+      "somas": {
+        "A": 7,
+        "B": 13,
+        "C": 14
+      }
+    }
+  ]
+}

@@ -1,0 +1,282 @@
+{
+  "1A": [
+    {
+      "num": 1,
+      "name": "ALESSANDRO DE LIMA MAINARDES",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 2,
+      "name": "ALEXSANDRO PACHECO ANDRADE",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 3,
+      "name": "ANTHONY GABRIEL SILVA DE OLIVEIRA",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 4,
+      "name": "CARLOS EDUARDO CAMARGO DA SILVA",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 5,
+      "name": "CLEVERSON KAUAN COSTA",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 6,
+      "name": "DEIVID BERNARDO DE LARA RODRIGUES",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 7,
+      "name": "DHIENYFER APARECIDA CAMARGO VIEIRA",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 8,
+      "name": "DOUGLAS DE SOUZA KOCH",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 9,
+      "name": "GABRIEL PACHECO PINHEIRO",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 10,
+      "name": "JOÃO CARLOS MARTINS BUENO",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 11,
+      "name": "JOAO MANOEL CASTANHO MATSUMOTO",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 12,
+      "name": "JOAO PEDRO AMARAL",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 13,
+      "name": "LUIS FELIPE CARDOSO DE SOUZA",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 16,
+      "name": "MILENA DE OLIVEIRA MARTINS",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 17,
+      "name": "NÁTHALY VITÓRIA BIAZIN OLEIAS",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 18,
+      "name": "PIETRO HAVI KUKI AZEVEDO E SILVA",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 22,
+      "name": "JOAO PAULO RAMOS DOS SANTOS",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 23,
+      "name": "GUSTAVO DOS SANTOS LEAL",
+      "type": "C",
+      "turma": "1A"
+    },
+    {
+      "num": 24,
+      "name": "THAIS ARRUDA LEITE",
+      "type": "A",
+      "turma": "1A"
+    },
+    {
+      "num": 27,
+      "name": "HANA EDUARDA DOS SANTOS MONTEIRO DE OLIVEIRA",
+      "type": "B",
+      "turma": "1A"
+    },
+    {
+      "num": 28,
+      "name": "VICTOR ENRIQUE SANTOS SILVA",
+      "type": "C",
+      "turma": "1A"
+    }
+  ],
+  "1B": [
+    {
+      "num": 1,
+      "name": "ANA FLAVIA SOARES DE AGOSTINHO",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 2,
+      "name": "ANA LORENA TELES DINIZ",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 3,
+      "name": "ANDERSON GABRIEL SCHINEGOWSKI CIARÁ",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 4,
+      "name": "ANDREY ALVES ANDRADE",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 5,
+      "name": "EMANUELLY DA SILVA VIEIRA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 6,
+      "name": "EMANUELY NAYARA ROBERTO DOS PASSOS",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 7,
+      "name": "GRAZIELLY MILEK DOS SANTOS",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 8,
+      "name": "GUSTAVO TOZESKI OLIVEIRA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 9,
+      "name": "HELENA VALENTIM GUIMARAES",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 10,
+      "name": "JOAO PEDRO SOARES DA SILVA",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 11,
+      "name": "KAREN CRISTINA BATISTA DA SILVA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 12,
+      "name": "KAUÃ HENRIQUE DOS SANTOS",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 13,
+      "name": "LUIZ FELIPE DA ROCHA DA SILVA",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 14,
+      "name": "NATHIELLY VITORIA DOS SANTOS LARA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 15,
+      "name": "SCHEILA SIMÕES",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 16,
+      "name": "VINICIUS ROBERTO",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 17,
+      "name": "WALACY RENAN GONÇALVES FERREIRA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 18,
+      "name": "WALESKA MARIELLY MAINARDES DE LIMA",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 19,
+      "name": "YURI RAFAEL RAMOS DOS SANTOS",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 21,
+      "name": "JULIO CESAR PILAT OLIVEIRA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 23,
+      "name": "MARIA EDUARDA GABRIELY DE SOUZA SBITIKOWSKI",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 25,
+      "name": "FABIANA ELOA MACHADO DE OLIVEIRA",
+      "type": "A",
+      "turma": "1B"
+    },
+    {
+      "num": 26,
+      "name": "SOFIA KATARINE DE LIMA",
+      "type": "B",
+      "turma": "1B"
+    },
+    {
+      "num": 27,
+      "name": "LUIS RAFAEL ALBANO DE ALMEIDA",
+      "type": "C",
+      "turma": "1B"
+    },
+    {
+      "num": 28,
+      "name": "ADRIAN EMANUEL PACHECO LOURENÇO",
+      "type": "A",
+      "turma": "1B"
+    }
+  ]
+}

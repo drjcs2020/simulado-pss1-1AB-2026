@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Corretor PSS 1 / UEPG — 2026 (4 Proposições)</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --err: #dc2626;
+      --border: #cbd5e1;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 70px; }
+    header { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+    header p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+    .container { max-width: 820px; margin: 0 auto; padding: 12px; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; }
+    .tab-btn { flex: 1; padding: 10px 8px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    select, input[type="text"], input[type="url"] { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; }
+    .btn { padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-ok { background: var(--ok); color: #fff; }
+    .btn-warn { background: var(--warn); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-A { background: #dbeafe; color: #1e40af; }
+    .badge-B { background: #fef3c7; color: #92400e; }
+    .badge-C { background: #dcfce7; color: #166534; }
+    .badge-sync { background: #e0e7ff; color: #3730a3; }
+    .q-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .q-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+    .q-label { font-weight: 700; font-size: 14px; min-width: 72px; }
+    .q-label small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+    .bubbles { display: flex; gap: 6px; }
+    .bubble { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #94a3b8; background: #fff; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; }
+    .bubble.selected { background: #0f172a; color: #fff; border-color: #0f172a; }
+    .q-score { min-width: 58px; text-align: right; font-weight: 700; font-size: 14px; }
+    video { width: 100%; max-height: 260px; border-radius: 10px; background: #000; object-fit: cover; display: none; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; font-weight: 700; color: var(--muted); }
+    .stat-bar { height: 10px; border-radius: 5px; background: #e2e8f0; overflow: hidden; display: flex; margin-top: 4px; }
+    .bar-ok { background: var(--ok); }
+    .bar-part { background: var(--warn); }
+    .bar-err { background: var(--err); }
+    .hidden { display: none !important; }
+    .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row" style="justify-content:space-between;">
+      <div>
+        <h1>Corretor PSS 1 / UEPG — Matemática 2026</h1>
+        <p>Colégio Estadual Padre Nicolau Baltazar • Padrão 4 Proposições (01–08 | Máx. 15)</p>
+      </div>
+      <span id="syncStatusBadge" class="badge badge-sync">Offline Pronto</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('corrigir', this)">1. Escanear & Corrigir</button>
+      <button class="tab-btn" onclick="switchTab('boletim', this)">2. Boletim Turmas</button>
+      <button class="tab-btn" onclick="switchTab('estatisticas', this)">3. Estatísticas PSS</button>
+      <button class="tab-btn" onclick="switchTab('config', this)">4. Planilha & Backup</button>
+    </div>
+
+    <!-- ABA 1: CORRIGIR -->
+    <div id="tab-corrigir">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <button class="btn btn-primary" onclick="toggleCamera()" id="btnCamera">📷 Ler QR Code da Prova</button>
+          <span id="qrFeedback" style="font-size:12px;color:var(--muted);">Formato: PSS1|TURMA|Nº|TIPO</span>
+        </div>
+        <video id="qrVideo" playsinline></video>
+
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;" />
+
+        <div class="row">
+          <select id="selTurma" onchange="onTurmaChange()" style="flex:1;min-width:110px;">
+            <option value="1A">1ª Série A (21)</option>
+            <option value="1B">1ª Série B (25)</option>
+          </select>
+          <select id="selAluno" onchange="onAlunoChange()" style="flex:3;min-width:200px;"></select>
+        </div>
+        <div id="studentMeta" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <strong>Cartão-Resposta (Toque nas proposições marcadas)</strong>
+          <span style="font-size:16px;font-weight:800;color:var(--primary);">Nota: <span id="liveTotal">0,00</span> / 10,00</span>
+        </div>
+        <div class="q-grid" id="questionsGrid"></div>
+        <div class="row" style="margin-top:14px;">
+          <button class="btn btn-ok" style="flex:2;" onclick="saveCurrentStudent()">💾 Salvar & Sincronizar Nota</button>
+          <button class="btn btn-outline" style="flex:1;" onclick="clearBubbles()">Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA 2: BOLETIM -->
+    <div id="tab-boletim" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+          <select id="boletimTurma" onchange="renderBoletim()">
+            <option value="1A">1ª Série A (21 ativos)</option>
+            <option value="1B">1ª Série B (25 ativos)</option>
+          </select>
+          <button class="btn btn-primary" onclick="exportCSV()">📥 Baixar CSV</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="boletimTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA 3: ESTATÍSTICAS -->
+    <div id="tab-estatisticas" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+          <strong>Análise Estatística por Questão (Padrão PSS 1)</strong>
+          <select id="statsTurma" onchange="renderStats()">
+            <option value="ALL">Todas as Turmas (1A + 1B)</option>
+            <option value="1A">Somente 1ª Série A</option>
+            <option value="1B">Somente 1ª Série B</option>
+          </select>
+        </div>
+        <div id="statsSummary" class="row" style="gap:12px;margin-bottom:12px;font-size:13px;"></div>
+        <div id="statsList"></div>
+      </div>
+    </div>
+
+    <!-- ABA 4: CONFIGURAÇÃO GOOGLE SHEETS -->
+    <div id="tab-config" class="hidden">
+      <div class="card">
+        <strong>Integração em Nuvem (Google Sheets + Apps Script)</strong>
+        <p style="font-size:13px;color:var(--muted);">Cole abaixo a URL do Web App implantado na planilha <code>Sistema_PSS1_Matematica_2026_4Prop</code>. Enquanto estiver sem internet, as correções ficam salvas na fila offline e sobem automaticamente ao sincronizar.</p>
+        <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-bottom:10px;" />
+        <div class="row">
+          <button class="btn btn-primary" onclick="saveGasUrl()">Salvar URL</button>
+          <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
+          <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Baixar da Planilha</button>
+        </div>
+        <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+<script>
+const ROSTERS = {
+  "1A": [
+    {num:1,name:"ALESSANDRO DE LIMA MAINARDES",type:"A"},{num:2,name:"ALEXSANDRO PACHECO ANDRADE",type:"B"},
+    {num:3,name:"ANTHONY GABRIEL SILVA DE OLIVEIRA",type:"C"},{num:4,name:"CARLOS EDUARDO CAMARGO DA SILVA",type:"A"},
+    {num:5,name:"CLEVERSON KAUAN COSTA",type:"B"},{num:6,name:"DEIVID BERNARDO DE LARA RODRIGUES",type:"C"},
+    {num:7,name:"DHIENYFER APARECIDA CAMARGO VIEIRA",type:"A"},{num:8,name:"DOUGLAS DE SOUZA KOCH",type:"B"},
+    {num:9,name:"GABRIEL PACHECO PINHEIRO",type:"C"},{num:10,name:"JOÃO CARLOS MARTINS BUENO",type:"A"},
+    {num:11,name:"JOAO MANOEL CASTANHO MATSUMOTO",type:"B"},{num:12,name:"JOAO PEDRO AMARAL",type:"C"},
+    {num:13,name:"LUIS FELIPE CARDOSO DE SOUZA",type:"A"},{num:16,name:"MILENA DE OLIVEIRA MARTINS",type:"B"},
+    {num:17,name:"NÁTHALY VITÓRIA BIAZIN OLEIAS",type:"C"},{num:18,name:"PIETRO HAVI KUKI AZEVEDO E SILVA",type:"A"},
+    {num:22,name:"JOAO PAULO RAMOS DOS SANTOS",type:"B"},{num:23,name:"GUSTAVO DOS SANTOS LEAL",type:"C"},
+    {num:24,name:"THAIS ARRUDA LEITE",type:"A"},{num:27,name:"HANA EDUARDA DOS SANTOS MONTEIRO DE OLIVEIRA",type:"B"},
+    {num:28,name:"VICTOR ENRIQUE SANTOS SILVA",type:"C"}
+  ],
+  "1B": [
+    {num:1,name:"ANA FLAVIA SOARES DE AGOSTINHO",type:"A"},{num:2,name:"ANA LORENA TELES DINIZ",type:"B"},
+    {num:3,name:"ANDERSON GABRIEL SCHINEGOWSKI CIARÁ",type:"C"},{num:4,name:"ANDREY ALVES ANDRADE",type:"A"},
+    {num:5,name:"EMANUELLY DA SILVA VIEIRA",type:"B"},{num:6,name:"EMANUELY NAYARA ROBERTO DOS PASSOS",type:"C"},
+    {num:7,name:"GRAZIELLY MILEK DOS SANTOS",type:"A"},{num:8,name:"GUSTAVO TOZESKI OLIVEIRA",type:"B"},
+    {num:9,name:"HELENA VALENTIM GUIMARAES",type:"C"},{num:10,name:"JOAO PEDRO SOARES DA SILVA",type:"A"},
+    {num:11,name:"KAREN CRISTINA BATISTA DA SILVA",type:"B"},{num:12,name:"KAUÃ HENRIQUE DOS SANTOS",type:"C"},
+    {num:13,name:"LUIZ FELIPE DA ROCHA DA SILVA",type:"A"},{num:14,name:"NATHIELLY VITORIA DOS SANTOS LARA",type:"B"},
+    {num:15,name:"SCHEILA SIMÕES",type:"C"},{num:16,name:"VINICIUS ROBERTO",type:"A"},
+    {num:17,name:"WALACY RENAN GONÇALVES FERREIRA",type:"B"},{num:18,name:"WALESKA MARIELLY MAINARDES DE LIMA",type:"C"},
+    {num:19,name:"YURI RAFAEL RAMOS DOS SANTOS",type:"A"},{num:21,name:"JULIO CESAR PILAT OLIVEIRA",type:"B"},
+    {num:23,name:"MARIA EDUARDA GABRIELY DE SOUZA SBITIKOWSKI",type:"C"},{num:25,name:"FABIANA ELOA MACHADO DE OLIVEIRA",type:"A"},
+    {num:26,name:"SOFIA KATARINE DE LIMA",type:"B"},{num:27,name:"LUIS RAFAEL ALBANO DE ALMEIDA",type:"C"},
+    {num:28,name:"ADRIAN EMANUEL PACHECO LOURENÇO",type:"A"}
+  ]
+};
+
+// Gabaritos oficiais PSS 1 (4 proposições: 01, 02, 04, 08 -> soma máxima 15) por Tipo A, B e C
+const ANSWER_KEYS = {
+  A: [11, 5, 14, 11, 13, 7, 14, 11, 13, 7],
+  B: [13, 3, 7, 13, 11, 14, 11, 7, 14, 13],
+  C: [7, 10, 11, 7, 14, 13, 7, 13, 11, 14]
+};
+
+const TOPICS = [
+  "Q01 • Potenciação e Razão", "Q02 • Área e Perímetro", "Q03 • Média, Moda e Mediana",
+  "Q04 • Triângulo Retângulo", "Q05 • Razões Trigonométricas", "Q06 • Variância e Desvio Padrão",
+  "Q07 • Probabilidade", "Q08 • Trigonometria Aplicada", "Q09 • Quartis e Dispersão",
+  "Q10 • Geometria Integrada"
+];
+
+let currentMarks = [0,0,0,0,0,0,0,0,0,0];
+let db = JSON.parse(localStorage.getItem('pss1_2026_db') || '{"1A":{},"1B":{}}');
+let syncQueue = JSON.parse(localStorage.getItem('pss1_2026_queue') || '[]');
+let gasUrl = localStorage.getItem('pss1_2026_gas_url') || '';
+let videoStream = null;
+let scanTimer = null;
+
+function calcPSS1Score(markedMask, correctMask) {
+  if (markedMask === 0) return 0;
+  // Se marcou qualquer proposição incorreta (bit ligado em markedMask que não está em correctMask) -> zera
+  if ((markedMask & (~correctMask)) !== 0) return 0;
+  let markedCount = 0, correctCount = 0;
+  for (let b = 0; b < 4; b++) {
+    if ((correctMask >> b) & 1) correctCount++;
+    if ((markedMask >> b) & 1) markedCount++;
+  }
+  return correctCount > 0 ? (markedCount / correctCount) : 0;
+}
+
+function init() {
+  document.getElementById('gasUrlInput').value = gasUrl;
+  onTurmaChange();
+  updateSyncBadge();
+  if (navigator.onLine && gasUrl && syncQueue.length > 0) syncWithSheets();
+}
+
+function onTurmaChange() {
+  const turma = document.getElementById('selTurma').value;
+  const sel = document.getElementById('selAluno');
+  sel.innerHTML = '';
+  ROSTERS[turma].forEach(st => {
+    const done = db[turma][st.num] ? ' ✅' : '';
+    const opt = document.createElement('option');
+    opt.value = st.num;
+    opt.textContent = `${String(st.num).padStart(2,'0')} - ${st.name} (Tipo ${st.type})${done}`;
+    sel.appendChild(opt);
+  });
+  onAlunoChange();
+}
+
+function onAlunoChange() {
+  const turma = document.getElementById('selTurma').value;
+  const num = Number(document.getElementById('selAluno').value);
+  const st = ROSTERS[turma].find(s => s.num === num);
+  const saved = db[turma][num];
+  currentMarks = saved ? [...saved.marks] : [0,0,0,0,0,0,0,0,0,0];
+  document.getElementById('studentMeta').innerHTML =
+    `QR Code: <strong>PSS1|${turma}|${String(num).padStart(2,'0')}|${st.type}</strong> • Caderno: <span class="badge badge-${st.type}">TIPO ${st.type}</span>`;
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const turma = document.getElementById('selTurma').value;
+  const num = Number(document.getElementById('selAluno').value);
+  const st = ROSTERS[turma].find(s => s.num === num);
+  const keys = ANSWER_KEYS[st.type];
+  const grid = document.getElementById('questionsGrid');
+  grid.innerHTML = '';
+  let total = 0;
+
+  for (let i = 0; i < 10; i++) {
+    const mask = currentMarks[i];
+    const score = calcPSS1Score(mask, keys[i]);
+    total += score;
+    const row = document.createElement('div');
+    row.className = 'q-item';
+    let bubblesHtml = '';
+    [1, 2, 4, 8].forEach(w => {
+      const sel = (mask & w) ? 'selected' : '';
+      bubblesHtml += `<div class="bubble ${sel}" onclick="toggleBubble(${i},${w})">${String(w).padStart(2,'0')}</div>`;
+    });
+    const color = score === 1 ? 'var(--ok)' : (score > 0 ? 'var(--warn)' : 'var(--muted)');
+    row.innerHTML = `
+      <div class="q-label">Q${String(i+1).padStart(2,'0')} <small>Gab: ${String(keys[i]).padStart(2,'0')} | Marc: ${String(mask).padStart(2,'0')}</small></div>
+      <div class="bubbles">${bubblesHtml}</div>
+      <div class="q-score" style="color:${color}">${score.toFixed(2).replace('.',',')}</div>
+    `;
+    grid.appendChild(row);
+  }
+  document.getElementById('liveTotal').textContent = total.toFixed(2).replace('.',',');
+}
+
+function toggleBubble(qIdx, weight) {
+  currentMarks[qIdx] ^= weight;
+  renderQuestions();
+}
+
+function clearBubbles() {
+  currentMarks = [0,0,0,0,0,0,0,0,0,0];
+  renderQuestions();
+}
+
+function saveCurrentStudent() {
+  const turma = document.getElementById('selTurma').value;
+  const num = Number(document.getElementById('selAluno').value);
+  const st = ROSTERS[turma].find(s => s.num === num);
+  const keys = ANSWER_KEYS[st.type];
+  const scores = currentMarks.map((m, idx) => Number(calcPSS1Score(m, keys[idx]).toFixed(2)));
+  const total = Number(scores.reduce((a,b) => a+b, 0).toFixed(2));
+  const updatedAt = new Date().toLocaleString('pt-BR');
+
+  const record = { turma, num, name: st.name, type: st.type, marks: [...currentMarks], scores, total, updatedAt };
+  db[turma][num] = record;
+  localStorage.setItem('pss1_2026_db', JSON.stringify(db));
+
+  syncQueue = syncQueue.filter(r => !(r.turma === turma && r.num === num));
+  syncQueue.push(record);
+  localStorage.setItem('pss1_2026_queue', JSON.stringify(syncQueue));
+  updateSyncBadge();
+  onTurmaChange();
+  document.getElementById('selAluno').value = num;
+  onAlunoChange();
+  showToast(`Salvo: ${st.name.split(' ')[0]} — Nota ${total.toFixed(2).replace('.',',')}`);
+
+  if (navigator.onLine && gasUrl) syncWithSheets();
+}
+
+async function toggleCamera() {
+  const video = document.getElementById('qrVideo');
+  const btn = document.getElementById('btnCamera');
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+    clearInterval(scanTimer);
+    video.style.display = 'none';
+    btn.textContent = '📷 Ler QR Code da Prova';
+    return;
+  }
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = videoStream;
+    await video.play();
+    video.style.display = 'block';
+    btn.textContent = '⏹ Fechar Câmera';
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      scanTimer = setInterval(async () => {
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) handleQrPayload(codes[0].rawValue);
+        } catch(e) {}
+      }, 400);
+    } else {
+      showToast('Navegador sem BarcodeDetector nativo — selecione o aluno na lista.');
+    }
+  } catch (err) {
+    showToast('Erro ao acessar câmera: ' + err.message);
+  }
+}
+
+function handleQrPayload(raw) {
+  // Esperado: PSS1|1A|01|A
+  const parts = String(raw).trim().split('|');
+  if (parts.length >= 4 && parts[0] === 'PSS1') {
+    const turma = parts[1];
+    const num = Number(parts[2]);
+    if (ROSTERS[turma]) {
+      document.getElementById('selTurma').value = turma;
+      onTurmaChange();
+      document.getElementById('selAluno').value = num;
+      onAlunoChange();
+      toggleCamera();
+      showToast(`QR Code lido: ${turma} Nº ${num}`);
+    }
+  }
+}
+
+function switchTab(name, btn) {
+  ['corrigir','boletim','estatisticas','config'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'boletim') renderBoletim();
+  if (name === 'estatisticas') renderStats();
+  if (name === 'config') updateSyncBadge();
+}
+
+function renderBoletim() {
+  const turma = document.getElementById('boletimTurma').value;
+  const tbl = document.getElementById('boletimTable');
+  let html = '<thead><tr><th>Nº</th><th>Estudante</th><th>Tipo</th><th>Status</th><th>Nota</th></tr></thead><tbody>';
+  ROSTERS[turma].forEach(st => {
+    const rec = db[turma][st.num];
+    const status = rec ? 'Corrigida' : 'Pendente';
+    const nota = rec ? rec.total.toFixed(2).replace('.',',') : '—';
+    html += `<tr><td>${String(st.num).padStart(2,'0')}</td><td>${st.name}</td><td><span class="badge badge-${st.type}">${st.type}</span></td><td>${status}</td><td><strong>${nota}</strong></td></tr>`;
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
+function renderStats() {
+  const filter = document.getElementById('statsTurma').value;
+  const records = [];
+  ['1A','1B'].forEach(t => {
+    if (filter === 'ALL' || filter === t) {
+      Object.values(db[t]).forEach(r => records.push(r));
+    }
+  });
+  const summary = document.getElementById('statsSummary');
+  const list = document.getElementById('statsList');
+  if (records.length === 0) {
+    summary.innerHTML = '<span>Nenhuma prova corrigida ainda neste filtro.</span>';
+    list.innerHTML = '';
+    return;
+  }
+  const avg = records.reduce((s,r) => s + r.total, 0) / records.length;
+  const pass = records.filter(r => r.total >= 6).length;
+  summary.innerHTML = `
+    <div><strong>Corrigidas:</strong> ${records.length}</div>
+    <div><strong>Média Geral:</strong> ${avg.toFixed(2).replace('.',',')}</div>
+    <div><strong>Notas ≥ 6,0:</strong> ${pass} (${((pass/records.length)*100).toFixed(0)}%)</div>
+  `;
+  let html = '';
+  for (let q = 0; q < 10; q++) {
+    let full = 0, part = 0, zero = 0, sumQ = 0;
+    records.forEach(r => {
+      const sc = r.scores[q] || 0;
+      sumQ += sc;
+      if (sc >= 0.99) full++;
+      else if (sc > 0) part++;
+      else zero++;
+    });
+    const n = records.length;
+    const pFull = (full/n)*100, pPart = (part/n)*100, pZero = (zero/n)*100;
+    html += `
+      <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
+        <div class="row" style="justify-content:space-between;font-size:13px;">
+          <strong>${TOPICS[q]}</strong>
+          <span>Média: ${(sumQ/n).toFixed(2).replace('.',',')} | Total: ${full} • Parcial: ${part} • Erro: ${zero}</span>
+        </div>
+        <div class="stat-bar">
+          <div class="bar-ok" style="width:${pFull}%"></div>
+          <div class="bar-part" style="width:${pPart}%"></div>
+          <div class="bar-err" style="width:${pZero}%"></div>
+        </div>
+      </div>
+    `;
+  }
+  list.innerHTML = html;
+}
+
+function exportCSV() {
+  const turma = document.getElementById('boletimTurma').value;
+  let csv = 'Num;Estudante;Tipo;Q01;Q02;Q03;Q04;Q05;Q06;Q07;Q08;Q09;Q10;Nota_Final\n';
+  ROSTERS[turma].forEach(st => {
+    const r = db[turma][st.num];
+    const qs = r ? r.scores.map(v => v.toFixed(2).replace('.',',')).join(';') : ';;;;;;;;;';
+    const tot = r ? r.total.toFixed(2).replace('.',',') : '0,00';
+    csv += `${st.num};"${st.name}";${st.type};${qs};${tot}\n`;
+  });
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Notas_PSS1_${turma}_2026.csv`;
+  a.click();
+}
+
+function saveGasUrl() {
+  gasUrl = document.getElementById('gasUrlInput').value.trim();
+  localStorage.setItem('pss1_2026_gas_url', gasUrl);
+  updateSyncBadge();
+  showToast('URL da Planilha salva!');
+}
+
+async function syncWithSheets() {
+  if (!gasUrl) { showToast('Configure a URL do Apps Script primeiro.'); return; }
+  if (syncQueue.length === 0) { showToast('Tudo já está sincronizado!'); return; }
+  try {
+    const res = await fetch(gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({ records: syncQueue })
+    });
+    const json = await res.json();
+    if (json.status === 'ok') {
+      syncQueue = [];
+      localStorage.setItem('pss1_2026_queue', '[]');
+      updateSyncBadge();
+      showToast(`Sincronizado com Google Sheets (${json.updated} registros)!`);
+    }
+  } catch (e) {
+    showToast('Sem conexão no momento — mantido na fila offline.');
+  }
+}
+
+async function pullFromSheets() {
+  if (!gasUrl) { showToast('Configure a URL do Apps Script primeiro.'); return; }
+  try {
+    const res = await fetch(gasUrl);
+    const json = await res.json();
+    if (json.status === 'ok') {
+      ['1A','1B'].forEach(t => {
+        (json.turmas[t] || []).forEach(row => {
+          if (row.Status === 'Corrigida') {
+            const scores = [1,2,3,4,5,6,7,8,9,10].map(i => Number(row['Q'+String(i).padStart(2,'0')] || 0));
+            const total = Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
+            db[t][Number(row['Nº'])] = {
+              turma: t, num: Number(row['Nº']), name: row.Estudante, type: row.Tipo,
+              marks: db[t][Number(row['Nº'])]?.marks || [0,0,0,0,0,0,0,0,0,0],
+              scores, total, updatedAt: row.Atualizado_Em || ''
+            };
+          }
+        });
+      });
+      localStorage.setItem('pss1_2026_db', JSON.stringify(db));
+      onTurmaChange();
+      showToast('Dados atualizados a partir do Google Sheets!');
+    }
+  } catch (e) {
+    showToast('Erro ao baixar da planilha: ' + e.message);
+  }
+}
+
+function updateSyncBadge() {
+  const b = document.getElementById('syncStatusBadge');
+  const q = document.getElementById('queueInfo');
+  b.textContent = syncQueue.length > 0 ? `Fila Offline: ${syncQueue.length}` : (gasUrl ? 'Sheets Conectado' : 'Modo Local');
+  if (q) q.textContent = `Registros pendentes na fila offline: ${syncQueue.length}`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+window.addEventListener('online', () => { if (gasUrl && syncQueue.length > 0) syncWithSheets(); });
+init();
+</script>
+</body>
+</html>
