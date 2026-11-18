@@ -1,174 +1,45 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Corretor PSS 1 / UEPG — 2026 (4 Proposições)</title>
-  <style>
-    :root {
-      --primary: #1e3a8a;
-      --primary-light: #3b82f6;
-      --bg: #f1f5f9;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --ok: #16a34a;
-      --warn: #d97706;
-      --err: #dc2626;
-      --border: #cbd5e1;
-    }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 70px; }
-    header { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
-    header h1 { margin: 0; font-size: 16px; font-weight: 700; }
-    header p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
-    .container { max-width: 820px; margin: 0 auto; padding: 12px; }
-    .tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; }
-    .tab-btn { flex: 1; padding: 10px 8px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
-    .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    select, input[type="text"], input[type="url"] { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; }
-    .btn { padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-ok { background: var(--ok); color: #fff; }
-    .btn-warn { background: var(--warn); color: #fff; }
-    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .badge-A { background: #dbeafe; color: #1e40af; }
-    .badge-B { background: #fef3c7; color: #92400e; }
-    .badge-C { background: #dcfce7; color: #166534; }
-    .badge-sync { background: #e0e7ff; color: #3730a3; }
-    .q-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .q-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
-    .q-label { font-weight: 700; font-size: 14px; min-width: 72px; }
-    .q-label small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
-    .bubbles { display: flex; gap: 6px; }
-    .bubble { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #94a3b8; background: #fff; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; }
-    .bubble.selected { background: #0f172a; color: #fff; border-color: #0f172a; }
-    .q-score { min-width: 58px; text-align: right; font-weight: 700; font-size: 14px; }
-    video { width: 100%; max-height: 260px; border-radius: 10px; background: #000; object-fit: cover; display: none; margin-top: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-    th { background: #f8fafc; font-weight: 700; color: var(--muted); }
-    .stat-bar { height: 10px; border-radius: 5px; background: #e2e8f0; overflow: hidden; display: flex; margin-top: 4px; }
-    .bar-ok { background: var(--ok); }
-    .bar-part { background: var(--warn); }
-    .bar-err { background: var(--err); }
-    .hidden { display: none !important; }
-    .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="row" style="justify-content:space-between;">
-      <div>
-        <h1>Corretor PSS 1 / UEPG — Matemática 2026</h1>
-        <p>Colégio Estadual Padre Nicolau Baltazar • Padrão 4 Proposições (01–08 | Máx. 15)</p>
-      </div>
-      <span id="syncStatusBadge" class="badge badge-sync">Offline Pronto</span>
-    </div>
-  </header>
-
-  <div class="container">
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('corrigir', this)">1. Escanear & Corrigir</button>
-      <button class="tab-btn" onclick="switchTab('boletim', this)">2. Boletim Turmas</button>
-      <button class="tab-btn" onclick="switchTab('estatisticas', this)">3. Estatísticas PSS</button>
-      <button class="tab-btn" onclick="switchTab('config', this)">4. Planilha & Backup</button>
-    </div>
-
-    <!-- ABA 1: CORRIGIR -->
-    <div id="tab-corrigir">
-      <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <button class="btn btn-primary" onclick="toggleCamera()" id="btnCamera">📷 Ler QR Code da Prova</button><button class="btn btn-ok" onclick="openOmrScanner()">📄 Ler cartão</button>
-          
-          <span id="qrFeedback" style="font-size:12px;color:var(--muted);">Formato: PSS1|TURMA|Nº|TIPO</span>
-        </div>
-        <video id="qrVideo" playsinline></video>
-
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0;" />
-
-        <div class="row">
-          <select id="selTurma" onchange="onTurmaChange()" style="flex:1;min-width:110px;">
-            <option value="1A">1ª Série A (21)</option>
-            <option value="1B">1ª Série B (25)</option>
-          </select>
-          <select id="selAluno" onchange="onAlunoChange()" style="flex:3;min-width:200px;"></select>
-        </div>
-        <div id="studentMeta" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
-        <p id="resetInfo" style="font-size:13px;color:#9a3412;margin-top:8px" aria-live="polite"></p>
-      </div>
-
-      <div class="card">
-        <div class="row" style="justify-content:space-between;">
-          <strong>Conferência das somatórias (00–15) — cada soma corresponde a 01+02+04+08</strong>
-          <span style="font-size:16px;font-weight:800;color:var(--primary);">Nota: <span id="liveTotal">0,00</span> / 10,00</span>
-        </div>
-        <div class="q-grid" id="questionsGrid"></div>
-        <div class="row" style="margin-top:14px;">
-          <button class="btn btn-ok" style="flex:2;" onclick="saveCurrentStudent()">💾 Salvar & Sincronizar Nota</button>
-          <button class="btn btn-outline" style="flex:1;" onclick="clearBubbles()">Limpar</button>
-          <button class="btn btn-warn" style="flex:1;" onclick="resetCorrections('student')">Resetar dados do aluno</button>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ABA 2: BOLETIM -->
-    <div id="tab-boletim" class="hidden">
-      <div class="card">
-        <div class="row" style="justify-content:space-between;margin-bottom:10px;">
-          <select id="boletimTurma" onchange="renderBoletim()">
-            <option value="1A">1ª Série A (21 ativos)</option>
-            <option value="1B">1ª Série B (25 ativos)</option>
-          </select>
-          <button class="btn btn-primary" onclick="exportCSV()">📥 Baixar CSV</button>
-        </div>
-        <div style="overflow-x:auto;">
-          <table id="boletimTable"></table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ABA 3: ESTATÍSTICAS -->
-    <div id="tab-estatisticas" class="hidden">
-      <div class="card">
-        <div class="row" style="justify-content:space-between;margin-bottom:8px;">
-          <strong>Análise Estatística por Questão (Padrão PSS 1)</strong>
-          <select id="statsTurma" onchange="renderStats()">
-            <option value="ALL">Todas as Turmas (1A + 1B)</option>
-            <option value="1A">Somente 1ª Série A</option>
-            <option value="1B">Somente 1ª Série B</option>
-          </select>
-        </div>
-        <div id="statsSummary" class="row" style="gap:12px;margin-bottom:12px;font-size:13px;"></div>
-        <div id="statsList"></div>
-      </div>
-    </div>
-
-    <!-- ABA 4: CONFIGURAÇÃO GOOGLE SHEETS -->
-    <div id="tab-config" class="hidden">
-      <div class="card">
-        <strong>Integração em Nuvem (Google Sheets + Apps Script)</strong>
-        <p style="font-size:13px;color:var(--muted);">Cole abaixo a URL do Web App implantado na planilha <code>Sistema_PSS1_Matematica_2026_4Prop</code>. Enquanto estiver sem internet, as correções ficam salvas na fila offline e sobem automaticamente ao sincronizar.</p>
-        <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/AKfycbywnUBkGGu2g1iJbeIi5R8JrraF1HpviOXefrPYgHlExudpMqf2uilvBupV8HX4N204_g/exec" style="width:100%;margin-bottom:10px;" />
-        <div class="row">
-          <button class="btn btn-primary" onclick="saveGasUrl()">Salvar URL</button>
-          <button class="btn btn-primary" onclick="testSheetsConnection()">🧪 Testar Conexão</button>
-          <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
-          <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Atualizar status da planilha</button>
-        </div>
-        <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
-        <p id="sheetsDiagnostic" style="font-size:13px;color:#b45309;font-weight:700;"></p>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast hidden"></div>
-
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Corretor PSS1 · Matemática 2026</title><style>
+:root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#152743;background:#f2f5f9}
+*{box-sizing:border-box}body{margin:0;padding-bottom:26px}header{background:#173b75;color:white;padding:15px}header h1{margin:0;font-size:19px}header small{opacity:.9}
+main{max-width:940px;margin:auto;padding:12px}.pane{background:white;border:1px solid #dce3ed;border-radius:12px;padding:14px;margin-bottom:13px}
+nav{display:flex;gap:5px;overflow:auto;margin-bottom:12px}nav button{flex:1;white-space:nowrap}
+button,select,input{font:inherit;padding:10px;border-radius:8px}button{border:0;background:#1e407e;color:#fff;cursor:pointer;font-weight:650}button:disabled{opacity:.55}
+button.secondary{background:#e9eef7;color:#233b5a}button.danger{background:#a44719}button.positive{background:#166e4b}
+button.active{outline:3px solid #8db6fa}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1 1 160px}.hide{display:none!important}
+select,input[type=url]{border:1px solid #a9b8cd;background:white;width:100%;min-width:0}
+#studentMeta{font-size:13px;margin:9px 0;color:#425b73}#connection{font-size:12px;padding:7px 10px;background:#e8eef7;border-radius:7px;margin-top:7px}
+.question{display:flex;gap:7px;align-items:center;justify-content:space-between;padding:9px 5px;border-bottom:1px solid #e4eaf2}
+.question .qname{width:80px;flex-shrink:0;font-weight:700}.question .qname small{display:block;font-weight:400;font-size:10px;color:#586a80}
+.choices{display:flex;gap:5px;flex:1;justify-content:center}
+.choice{border:2px solid #98a9bf;background:white;color:#1d2c47;border-radius:6px;min-width:39px;height:41px;padding:2px 5px;font-size:13px}
+.choice.selected{background:#173b75;color:white;border-color:#173b75}
+.score{width:72px;text-align:right;font-size:13px;font-weight:700}
+.stat{margin:8px 0;padding:8px;background:#eef3fa;border-radius:8px;font-size:13px}
+#message,#resetMsg,#sheetsMessage{font-size:13px;white-space:pre-wrap;color:#415977;line-height:1.5;margin-top:9px}
+table{width:100%;border-collapse:collapse}td,th{font-size:12px;border-bottom:1px solid #e2e8f0;padding:7px;text-align:left}
+.video{width:100%;max-height:280px;background:#000;border-radius:9px}
+.summary{font-size:20px;font-weight:800;color:#183c75}
+@media(max-width:530px){nav button{font-size:11px;padding:9px 5px}.question{gap:4px}.question .qname{width:62px}.choice{min-width:34px;height:38px}.score{width:54px;font-size:12px}}
+</style></head><body>
+<header><h1>Corretor PSS1 · Matemática 2026</h1><small>1º A e 1º B · proposições 01, 02, 04, 08</small><div id="connection">Planilha ainda não verificada</div></header>
+<main><nav><button id="tabCorrect" class="active" type="button">Corrigir</button><button id="tabGrades" type="button">Boletim</button><button id="tabStats" type="button">Estatísticas</button><button id="tabConfig" type="button">Planilha</button></nav>
+<section id="correct">
+<div class="pane"><div class="row"><button id="qrButton" type="button">Ler QR Code</button><button id="cardButton" type="button" class="secondary">Ler cartão</button></div>
+<video id="qrVideo" class="video hide" playsinline autoplay muted></video>
+<div class="row" style="margin-top:12px"><label>Turma<select id="group"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><label>Aluno<select id="student"></select></label></div>
+<div id="studentMeta"></div><div id="message"></div></div>
+<div class="pane"><div class="row"><strong>Marque as proposições verdadeiras</strong><span class="summary" id="total">0,00 / 10,00</span></div>
+<div id="questions"></div>
+<div class="row" style="margin-top:14px"><button id="save" class="positive">Salvar nota</button><button id="clear" class="secondary">Limpar marcações</button><button id="reset" class="danger">Resetar nota do aluno</button></div>
+<div id="resetMsg"></div></div></section>
+<section id="grades" class="hide"><div class="pane"><div class="row"><label>Turma<select id="gradeGroup"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><button id="refresh">Atualizar planilha</button></div><div style="overflow:auto"><table id="gradeTable"></table></div></div></section>
+<section id="stats" class="hide"><div class="pane"><h3>Resumo de correções</h3><div id="statsOut"></div></div></section>
+<section id="config" class="hide"><div class="pane"><h3>Conexão com Google Sheets</h3><p style="font-size:13px">Informe uma vez a URL /exec do Apps Script; ela fica armazenada neste aparelho.</p><input id="gas" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+<div class="row" style="margin-top:10px"><button id="saveUrl">Salvar URL</button><button id="checkUrl" class="secondary">Verificar</button><button id="sync" class="secondary">Sincronizar</button></div>
+<p id="sheetsMessage"></p></div></section>
+</main>
 <script>
+"use strict";
 const ROSTERS = {
   "1A": [
     {num:1,name:"ALESSANDRO DE LIMA MAINARDES",type:"A"},{num:2,name:"ALEXSANDRO PACHECO ANDRADE",type:"B"},
@@ -206,534 +77,237 @@ const ANSWER_KEYS = {
   B: [13, 3, 7, 13, 11, 14, 11, 7, 14, 13],
   C: [7, 10, 11, 7, 14, 13, 7, 13, 11, 14]
 };
-
-const TOPICS = [
-  "Q01 • Potenciação e Razão", "Q02 • Área e Perímetro", "Q03 • Média, Moda e Mediana",
-  "Q04 • Triângulo Retângulo", "Q05 • Razões Trigonométricas", "Q06 • Variância e Desvio Padrão",
-  "Q07 • Probabilidade", "Q08 • Trigonometria Aplicada", "Q09 • Quartis e Dispersão",
-  "Q10 • Geometria Integrada"
-];
-
-let currentMarks = [0,0,0,0,0,0,0,0,0,0];
-let db = JSON.parse(localStorage.getItem('pss1_2026_db') || '{"1A":{},"1B":{}}');
-let syncQueue = JSON.parse(localStorage.getItem('pss1_2026_queue') || '[]');
-let gasUrl = localStorage.getItem('pss1_2026_gas_url') || '';
-let sheetsVerified = false;
-let sheetsVersion = 0;
-let lastRemoteCheck = 0;
-let syncInProgress = false;
-let videoStream = null;
-let scanTimer = null;
-
-
-function openOmrScanner() {
-  const turma = document.getElementById('selTurma').value;
-  const num = Number(document.getElementById('selAluno').value);
-  const st = ROSTERS[turma].find(x => x.num === num);
-  if (!st) { showToast('Selecione primeiro um estudante.'); return; }
-  location.href = 'scanner.html?turma=' + encodeURIComponent(turma) + '&num=' + num + '&tipo=' + encodeURIComponent(st.type);
+const $=id=>document.getElementById(id);
+const ZERO=()=>Array(10).fill(0),fmt=n=>Number(n).toFixed(2).replace('.',',');
+const DB_KEY='pss1_2026_db',QUEUE_KEY='pss1_2026_queue',GAS_KEY='pss1_2026_gas_url',IMPORT_KEY='pss1_omr_pending';
+function readStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch(e){return fallback}}
+let db=readStorage(DB_KEY,{'1A':{},'1B':{}}),queue=readStorage(QUEUE_KEY,[]),gasUrl=localStorage.getItem(GAS_KEY)||'';
+let marks=ZERO(),dirty=false,remoteVersion=0,sending=false,resetting=false,qrStream=null,qrTimer=null,qrBusy=false,currentTab='correct';
+function persist(){localStorage.setItem(DB_KEY,JSON.stringify(db));localStorage.setItem(QUEUE_KEY,JSON.stringify(queue))}
+function score(mask,key){
+ if(!mask||(mask&(~key))!==0)return 0;
+ let right=0,picked=0;for(let b=0;b<4;b++){if((key>>b)&1)right++;if((mask>>b)&1)picked++}
+ return right?Math.round(picked/right*100)/100:0;
 }
-function importPendingOmr() {
-  const raw = localStorage.getItem('pss1_omr_pending');
-  if (!raw) return;
-  localStorage.removeItem('pss1_omr_pending');
-  try {
-    const rec = JSON.parse(raw);
-    const st = (ROSTERS[rec.turma] || []).find(s => s.num === rec.num);
-    if (!st || rec.tipo !== st.type || !Array.isArray(rec.marks) ||
-        rec.marks.length !== 10 || !rec.marks.every(n => Number.isInteger(n) && n >= 0 && n <= 15)) {
-      showToast('Leitura rejeitada: aluno, versão ou somas inválidas.'); return;
-    }
-    document.getElementById('selTurma').value = rec.turma;
-    onTurmaChange();
-    document.getElementById('selAluno').value = String(rec.num);
-    onAlunoChange();
-    currentMarks = [...rec.marks];
-    renderQuestions();
-    showToast('Somas importadas para ' + st.name + '. Confira e clique Salvar se estiver correto.');
-  } catch(e) { showToast('Não foi possível importar a leitura: ' + e.message); }
+function current(){const t=$('group').value,n=Number($('student').value);return {t,n,st:(ROSTERS[t]||[]).find(a=>a.num===n)}}
+function getMarks(){return marks.slice()}
+function calculated(t,st,vals){const scores=vals.map((v,i)=>score(v,ANSWER_KEYS[st.type][i]));return {scores,total:Math.round(scores.reduce((a,b)=>a+b,0)*100)/100}}
+function toast(m){$('message').textContent=m}
+function showTab(name){
+ currentTab=name;for(const k of ['correct','grades','stats','config']){$(k).classList.toggle('hide',k!==name)}
+ for(const [id,k] of [['tabCorrect','correct'],['tabGrades','grades'],['tabStats','stats'],['tabConfig','config']])$(id).classList.toggle('active',k===name);
+ if(name==='grades')renderGrades();if(name==='stats')renderStats();
 }
-
-function calcPSS1Score(markedMask, correctMask) {
-  if (markedMask === 0) return 0;
-  // Se marcou qualquer proposição incorreta (bit ligado em markedMask que não está em correctMask) -> zera
-  if ((markedMask & (~correctMask)) !== 0) return 0;
-  let markedCount = 0, correctCount = 0;
-  for (let b = 0; b < 4; b++) {
-    if ((correctMask >> b) & 1) correctCount++;
-    if ((markedMask >> b) & 1) markedCount++;
+function groupChange(selected){
+ const t=$('group').value,sel=$('student'),before=selected??Number(sel.value);
+ sel.replaceChildren();
+ ROSTERS[t].forEach(s=>{const o=document.createElement('option');o.value=s.num;o.textContent=String(s.num).padStart(2,'0')+' - '+s.name;sel.append(o)});
+ if((ROSTERS[t]||[]).some(s=>s.num===before))sel.value=String(before);
+ studentChange();
+}
+function studentChange(){
+ const {t,n,st}=current();if(!st)return;
+ const saved=db[t]?.[n];marks=Array.isArray(saved?.marks)&&saved.marks.length===10?saved.marks.slice():ZERO();dirty=false;
+ const queued=queue.some(r=>r.turma===t&&Number(r.num)===n);
+ const stText=saved?(queued?'Salva neste celular; aguardando planilha':(saved.confirmed?'Corrigida no Google Sheets':'Salva no celular')):'Pendente';
+ $('studentMeta').textContent=st.name+' · Tipo '+st.type+' · '+stText;
+ renderQuestions();
+}
+function renderQuestions(){
+ const {st}=current();if(!st)return;
+ const host=$('questions');host.replaceChildren();
+ let total=0;
+ marks.forEach((m,q)=>{
+  const points=score(m,ANSWER_KEYS[st.type][q]);total+=points;
+  const row=document.createElement('div');row.className='question';
+  const label=document.createElement('div');label.className='qname';label.textContent='Q'+String(q+1).padStart(2,'0');
+  const sub=document.createElement('small');sub.textContent='Soma '+String(m).padStart(2,'0');label.append(sub);
+  const choices=document.createElement('div');choices.className='choices';
+  for(const w of [1,2,4,8]){
+   const button=document.createElement('button');button.className='choice'+((m&w)?' selected':'');button.type='button';button.textContent=String(w).padStart(2,'0');
+   button.setAttribute('aria-pressed',Boolean(m&w));
+   button.onclick=()=>{marks[q]^=w;dirty=true;renderQuestions()};choices.append(button);
   }
-  return correctCount > 0 ? (markedCount / correctCount) : 0;
-}
-
-function init() {
-  document.getElementById('gasUrlInput').value = gasUrl;
-  onTurmaChange();
-  importPendingOmr();
-  updateSyncBadge();
-  if(!gasUrl)setSheetsDiagnostic('Sem Apps Script configurado: salvar registra somente neste navegador.');
-  else testSheetsConnection().then(async ok=>{
-    if(ok){
-      await pullFromSheets();
-      if(syncQueue.length)await syncWithSheets();
-    }
-  });
-}
-
-function onTurmaChange() {
-  const turma = document.getElementById('selTurma').value;
-  const sel = document.getElementById('selAluno');
-  sel.innerHTML = '';
-  ROSTERS[turma].forEach(st => {
-    const done = db[turma][st.num] ? ' ✅' : '';
-    const opt = document.createElement('option');
-    opt.value = st.num;
-    opt.textContent = `${String(st.num).padStart(2,'0')} - ${st.name} (Tipo ${st.type})${done}`;
-    sel.appendChild(opt);
-  });
-  onAlunoChange();
-}
-
-function onAlunoChange() {
-  const turma = document.getElementById('selTurma').value;
-  const num = Number(document.getElementById('selAluno').value);
-  const st = ROSTERS[turma].find(s => s.num === num);
-  const saved = db[turma][num];
-  const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===num);
-  currentMarks = saved ? [...saved.marks] : [0,0,0,0,0,0,0,0,0,0];
-  const status = saved&&saved.cloudConflict?'DIVERGÊNCIA: nota local '+Number(saved.total).toFixed(2).replace('.',',')+' / Sheets '+Number(saved.cloudConflict.total).toFixed(2).replace('.',','):(queued?'Nota local — aguardando confirmação':(saved&&saved.cloudConfirmed?'Corrigida — Google Sheets confirmado':(saved?'Nota salva somente neste aparelho':'Pendente — sem correção')));
-  document.getElementById('studentMeta').innerHTML =
-    `QR Code: <strong>PSS1|${turma}|${String(num).padStart(2,'0')}|${st.type}</strong> • Caderno: <span class="badge badge-${st.type}">TIPO ${st.type}</span> • <strong>${status}</strong>`;
-  renderQuestions();
-}
-
-function renderQuestions() {
-  const turma = document.getElementById('selTurma').value;
-  const num = Number(document.getElementById('selAluno').value);
-  const st = ROSTERS[turma].find(s => s.num === num);
-  const keys = ANSWER_KEYS[st.type];
-  const grid = document.getElementById('questionsGrid');
-  grid.innerHTML = '';
-  let total = 0;
-
-  for (let i = 0; i < 10; i++) {
-    const mask = currentMarks[i];
-    const score = calcPSS1Score(mask, keys[i]);
-    total += score;
-    const row = document.createElement('div');
-    row.className = 'q-item';
-    let bubblesHtml = '';
-    [1, 2, 4, 8].forEach(w => {
-      const sel = (mask & w) ? 'selected' : '';
-      bubblesHtml += `<div class="bubble ${sel}" onclick="toggleBubble(${i},${w})">${String(w).padStart(2,'0')}</div>`;
-    });
-    const color = score === 1 ? 'var(--ok)' : (score > 0 ? 'var(--warn)' : 'var(--muted)');
-    row.innerHTML = `
-      <div class="q-label">Q${String(i+1).padStart(2,'0')} <small>Gab: ${String(keys[i]).padStart(2,'0')} | Marc: ${String(mask).padStart(2,'0')}</small></div>
-      <div class="bubbles">${bubblesHtml}</div>
-      <div class="q-score" style="color:${color}">${score.toFixed(2).replace('.',',')}</div>
-    `;
-    grid.appendChild(row);
-  }
-  document.getElementById('liveTotal').textContent = total.toFixed(2).replace('.',',');
-}
-
-function toggleBubble(qIdx, weight) {
-  currentMarks[qIdx] ^= weight;
-  renderQuestions();
-}
-
-function clearBubbles() {
-  currentMarks = [0,0,0,0,0,0,0,0,0,0];
-  renderQuestions();
-}
-
-async function saveCurrentStudent() {
-  const turma = document.getElementById('selTurma').value;
-  const num = Number(document.getElementById('selAluno').value);
-  const st = ROSTERS[turma].find(s => s.num === num);
-  const keys = ANSWER_KEYS[st.type];
-  const scores = currentMarks.map((m, idx) => Number(calcPSS1Score(m, keys[idx]).toFixed(2)));
-  const total = Number(scores.reduce((a,b) => a+b, 0).toFixed(2));
-  const updatedAt = new Date().toLocaleString('pt-BR');
-
-  const record = { turma, num, name: st.name, type: st.type, marks: [...currentMarks], scores, total, updatedAt, cloudConfirmed:false };
-  db[turma][num] = record;
-  localStorage.setItem('pss1_2026_db', JSON.stringify(db));
-
-  syncQueue = syncQueue.filter(r => !(r.turma === turma && r.num === num));
-  syncQueue.push(record);
-  localStorage.setItem('pss1_2026_queue', JSON.stringify(syncQueue));
-  updateSyncBadge();
-  onTurmaChange();
-  document.getElementById('selAluno').value = num;
-  onAlunoChange();
-  showToast('Nota ' + total.toFixed(2).replace('.',',') + ' salva no CELULAR. Sincronização pendente.');
-  if (navigator.onLine && gasUrl && sheetsVerified) await syncWithSheets();
-}
-
-async function toggleCamera() {
-  const video = document.getElementById('qrVideo');
-  const btn = document.getElementById('btnCamera');
-  if (videoStream) {
-    videoStream.getTracks().forEach(t => t.stop());
-    videoStream = null;
-    clearInterval(scanTimer);
-    video.style.display = 'none';
-    btn.textContent = '📷 Ler QR Code da Prova';
-    return;
-  }
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = videoStream;
-    await video.play();
-    video.style.display = 'block';
-    btn.textContent = '⏹ Fechar Câmera';
-    if ('BarcodeDetector' in window) {
-      const detector = new BarcodeDetector({ formats: ['qr_code'] });
-      scanTimer = setInterval(async () => {
-        try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) handleQrPayload(codes[0].rawValue);
-        } catch(e) {}
-      }, 400);
-    } else {
-      showToast('Navegador sem BarcodeDetector nativo — selecione o aluno na lista.');
-    }
-  } catch (err) {
-    showToast('Erro ao acessar câmera: ' + err.message);
-  }
-}
-
-function handleQrPayload(raw) {
-  // Esperado: PSS1|1A|01|A
-  const parts = String(raw).trim().split('|');
-  if (parts.length >= 4 && parts[0] === 'PSS1') {
-    const turma = parts[1];
-    const num = Number(parts[2]);
-    if (ROSTERS[turma]) {
-      document.getElementById('selTurma').value = turma;
-      onTurmaChange();
-      document.getElementById('selAluno').value = num;
-      onAlunoChange();
-      toggleCamera();
-      showToast(`QR Code lido: ${turma} Nº ${num}`);
-      openOmrScanner();
-    }
-  }
-}
-
-function switchTab(name, btn) {
-  ['corrigir','boletim','estatisticas','config'].forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
-  });
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  if (name === 'boletim') renderBoletim();
-  if (name === 'estatisticas') renderStats();
-  if (name === 'config') updateSyncBadge();
-}
-
-function renderBoletim() {
-  const turma = document.getElementById('boletimTurma').value;
-  const tbl = document.getElementById('boletimTable');
-  let html = '<thead><tr><th>Nº</th><th>Estudante</th><th>Tipo</th><th>Status</th><th>Nota</th></tr></thead><tbody>';
-  ROSTERS[turma].forEach(st => {
-    const rec = db[turma][st.num];
-    const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===st.num);
-    const status = rec&&rec.cloudConflict?'DIVERGÊNCIA — revisar nota':(queued?'Aguardando confirmação':(rec&&rec.cloudConfirmed?'Corrigida (Sheets)':(rec?'Corrigida no aparelho':'Pendente')));
-    const nota = rec ? rec.total.toFixed(2).replace('.',',') : '—';
-    html += `<tr><td>${String(st.num).padStart(2,'0')}</td><td>${st.name}</td><td><span class="badge badge-${st.type}">${st.type}</span></td><td>${status}</td><td><strong>${nota}</strong></td></tr>`;
-  });
-  html += '</tbody>';
-  tbl.innerHTML = html;
-}
-
-function renderStats() {
-  const filter = document.getElementById('statsTurma').value;
-  const records = [];
-  ['1A','1B'].forEach(t => {
-    if (filter === 'ALL' || filter === t) {
-      Object.values(db[t]).forEach(r => records.push(r));
-    }
-  });
-  const summary = document.getElementById('statsSummary');
-  const list = document.getElementById('statsList');
-  if (records.length === 0) {
-    summary.innerHTML = '<span>Nenhuma prova corrigida ainda neste filtro.</span>';
-    list.innerHTML = '';
-    return;
-  }
-  const avg = records.reduce((s,r) => s + r.total, 0) / records.length;
-  const pass = records.filter(r => r.total >= 6).length;
-  summary.innerHTML = `
-    <div><strong>Corrigidas:</strong> ${records.length}</div>
-    <div><strong>Média Geral:</strong> ${avg.toFixed(2).replace('.',',')}</div>
-    <div><strong>Notas ≥ 6,0:</strong> ${pass} (${((pass/records.length)*100).toFixed(0)}%)</div>
-  `;
-  let html = '';
-  for (let q = 0; q < 10; q++) {
-    let full = 0, part = 0, zero = 0, sumQ = 0;
-    records.forEach(r => {
-      const sc = r.scores[q] || 0;
-      sumQ += sc;
-      if (sc >= 0.99) full++;
-      else if (sc > 0) part++;
-      else zero++;
-    });
-    const n = records.length;
-    const pFull = (full/n)*100, pPart = (part/n)*100, pZero = (zero/n)*100;
-    html += `
-      <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-        <div class="row" style="justify-content:space-between;font-size:13px;">
-          <strong>${TOPICS[q]}</strong>
-          <span>Média: ${(sumQ/n).toFixed(2).replace('.',',')} | Total: ${full} • Parcial: ${part} • Erro: ${zero}</span>
-        </div>
-        <div class="stat-bar">
-          <div class="bar-ok" style="width:${pFull}%"></div>
-          <div class="bar-part" style="width:${pPart}%"></div>
-          <div class="bar-err" style="width:${pZero}%"></div>
-        </div>
-      </div>
-    `;
-  }
-  list.innerHTML = html;
-}
-
-function exportCSV() {
-  const turma = document.getElementById('boletimTurma').value;
-  let csv = 'Num;Estudante;Tipo;Q01;Q02;Q03;Q04;Q05;Q06;Q07;Q08;Q09;Q10;Nota_Final\n';
-  ROSTERS[turma].forEach(st => {
-    const r = db[turma][st.num];
-    const qs = r ? r.scores.map(v => v.toFixed(2).replace('.',',')).join(';') : ';;;;;;;;;';
-    const tot = r ? r.total.toFixed(2).replace('.',',') : '0,00';
-    csv += `${st.num};"${st.name}";${st.type};${qs};${tot}\n`;
-  });
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Notas_PSS1_${turma}_2026.csv`;
-  a.click();
-}
-
-
-function setSheetsDiagnostic(msg,success=false){
- const el=document.getElementById('sheetsDiagnostic');
- if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
-}
-
-function setSheetsDiagnostic(msg,success=false){
- const el=document.getElementById('sheetsDiagnostic');
- if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
-}
-
-let resetting=false;
-async function resetCorrections(scope){
- if(scope!=='student')return;
- if(resetting||syncInProgress){showToast('Aguarde a sincronização terminar.');return;}
- const turma=document.getElementById('selTurma').value;
- const num=Number(document.getElementById('selAluno').value);
- const student=(ROSTERS[turma]||[]).find(st=>st.num===num);
- const info=document.getElementById('resetInfo');
- if(!student){info.textContent='Selecione um aluno.';return;}
- if(!confirm('Resetar a nota de '+student.name+' ('+turma+', nº '+num+')?\n\nA correção será apagada no aplicativo e no Google Sheets.'))return;
- if(!gasUrl){info.textContent='Configure a URL do Apps Script para apagar a nota no celular e na planilha.';return;}
- resetting=true;
- info.textContent='Excluindo lançamento do aluno…';
- try{
-  const u=new URL(gasUrl);u.searchParams.set('action','ping');u.searchParams.set('_',String(Date.now()));
-  const ping=await fetch(u.toString(),{cache:'no-store'});
-  if(!ping.ok)throw Error('Falha na conexão: HTTP '+ping.status);
-  const version=await ping.json();
-  if(version.status!=='ok'||Number(version.version)<4)
-   throw Error('O Apps Script precisa estar implantado na versão 4 para permitir a exclusão na planilha.');
-  const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({action:'reset',scope:'student',turma,num,confirmed:true}),redirect:'follow'});
-  if(!res.ok)throw Error('Falha no reset: HTTP '+res.status);
-  const data=await res.json();
-  if(data.status!=='ok'||data.action!=='reset'||Number(data.version)<4||
-     !Array.isArray(data.reset)||data.reset.length!==1||
-     data.reset[0].turma!==turma||Number(data.reset[0].num)!==num)
-   throw Error(data.message||'O servidor não confirmou a exclusão deste aluno.');
-  delete db[turma][num];
-  syncQueue=syncQueue.filter(rec=>!(rec.turma===turma&&Number(rec.num)===num));
-  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
-  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
-  localStorage.removeItem('pss1_omr_pending');
-  updateSyncBadge();
-  onTurmaChange();
-  document.getElementById('selAluno').value=String(num);
-  onAlunoChange();
-  renderBoletim();renderStats();
-  info.textContent='Nota excluída. Aluno voltou para Pendente no aplicativo e no Google Sheets.';
-  showToast('Nota resetada: '+student.name.split(' ')[0]);
- }catch(err){
-  info.textContent='A exclusão não foi confirmada. Nenhuma nota local foi apagada. '+String(err.message||err);
- }finally{resetting=false;}
-}
-function saveGasUrl(){
- const value=document.getElementById('gasUrlInput').value.trim();
- if(value && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(value)){
-  setSheetsDiagnostic('URL inválida. Use o endereço /exec do Apps Script.');return;
- }
- gasUrl=value;sheetsVerified=false;sheetsVersion=0;
- localStorage.setItem('pss1_2026_gas_url',gasUrl);updateSyncBadge();
- setSheetsDiagnostic(gasUrl?'URL salva. Clique em Testar Conexão para confirmar o acesso.':'Sem conexão configurada.');
-}
-async function remoteRead(){
- if(!gasUrl)throw Error('URL do Apps Script não configurada.');
- const u=new URL(gasUrl);
- u.searchParams.set('action','data');u.searchParams.set('_',String(Date.now()));
- const resp=await fetch(u.toString(),{method:'GET',cache:'no-store',redirect:'follow'});
- if(!resp.ok)throw Error('HTTP '+resp.status);
- const data=await resp.json();
- if(data.status!=='ok'||!data.turmas||!Array.isArray(data.turmas['1A'])||!Array.isArray(data.turmas['1B']))
-  throw Error(data.message||'O Apps Script não retornou as turmas 1A e 1B.');
- return data;
-}
-function scoreFromSheet(row){
- const scores=Array.from({length:10},(_,q)=>{
-  const raw=row['Q'+String(q+1).padStart(2,'0')];
-  const v=typeof raw==='number'?raw:Number(String(raw??'').replace(',','.'));
-  return v;
+  const right=document.createElement('div');right.className='score';right.textContent=fmt(points);
+  row.append(label,choices,right);host.append(row);
  });
- if(scores.some(v=>!Number.isFinite(v)||v<0||v>1))return null;
- return scores;
+ $('total').textContent=fmt(total)+' / 10,00';
 }
-function matchesServer(local,row){
- if(!local||!row||row.Status!=='Corrigida')return false;
- const scores=scoreFromSheet(row);
- if(!scores)return false;
- return local.scores.length===10&&local.scores.every((v,i)=>Math.abs(v-scores[i])<.011);
+function clearDraft(){marks=ZERO();dirty=true;renderQuestions();toast('Marcações zeradas nesta tela. A nota salva continua intacta.')}
+function refreshStatus(){
+ const count=queue.length;$('connection').textContent=count?'Envio pendente: '+count+' nota(s)':remoteVersion?'Planilha acessível':'Planilha não verificada';
 }
-async function pullFromSheets(){
- if(!gasUrl){setSheetsDiagnostic('Configure a URL do Apps Script.');return false;}
+function parseScores(row){
+ const scores=Array.from({length:10},(_,i)=>Number(String(row['Q'+String(i+1).padStart(2,'0')]??'').replace(',','.')));
+ return scores.every(x=>Number.isFinite(x)&&x>=0&&x<=1)?scores:null;
+}
+async function getSheet(){
+ if(!gasUrl)throw Error('URL do Apps Script não configurada.');
+ const u=new URL(gasUrl);u.searchParams.set('action','data');u.searchParams.set('_',String(Date.now()));
+ const r=await fetch(u.toString(),{cache:'no-store',redirect:'follow'});if(!r.ok)throw Error('HTTP '+r.status);
+ const j=await r.json();if(j.status!=='ok'||!j.turmas||!Array.isArray(j.turmas['1A'])||!Array.isArray(j.turmas['1B']))throw Error(j.message||'O Apps Script não devolveu as turmas.');
+ remoteVersion=Number(j.version)||1;refreshStatus();return j;
+}
+async function reconcile({notify=true}={}){
  try{
-  const data=await remoteRead();let confirmed=0,imported=0,conflicts=0;
-  ['1A','1B'].forEach(t=>{
-   (data.turmas[t]||[]).forEach(row=>{
-    if(row.Status!=='Corrigida')return;
-    const num=Number(row['Nº']),st=ROSTERS[t].find(v=>v.num===num);
-    if(!st||st.type!==row.Tipo)return;
-    const scores=scoreFromSheet(row);
-    if(!scores)return;
-    const pending=syncQueue.find(r=>r.turma===t&&Number(r.num)===num);
-    if(pending&&!matchesServer(pending,row)){
-      const remoteScores=scoreFromSheet(row);
-      if(db[t][num]&&remoteScores)db[t][num].cloudConflict={total:Number(remoteScores.reduce((a,b)=>a+b,0).toFixed(2)),checkedAt:Date.now()};
-      conflicts++;return;
-    }
-    if(pending&&matchesServer(pending,row)){
-      syncQueue=syncQueue.filter(r=>!(r.turma===t&&Number(r.num)===num));
-      confirmed++;
-    }
-    const local=db[t][num],total=Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
-    db[t][num]={
-      turma:t,num,name:st.name,type:st.type,
-      marks:(local&&Array.isArray(local.marks)?local.marks:Array(10).fill(0)),
-      scores,total,updatedAt:String(row.Atualizado_Em||''),cloudConfirmed:true
-    };
-    imported++;
-   });
-  });
-  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
-  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
-  lastRemoteCheck=Date.now();sheetsVerified=true;sheetsVersion=Number(data.version)||1;
-  updateSyncBadge();onTurmaChange();
-  const active=document.querySelector('.tab-btn.active');
-  if(active&&active.textContent.includes('Boletim'))renderBoletim();
-  if(active&&active.textContent.includes('Estatísticas'))renderStats();
-  setSheetsDiagnostic('Planilha consultada: '+imported+' corrigida(s), '+confirmed+' fila(s) confirmada(s)'+(conflicts?', '+conflicts+' divergência(s) preservada(s) no celular.':'.'),conflicts===0);
-  return true;
- }catch(err){
-  setSheetsDiagnostic('Erro ao atualizar o status pela planilha: '+err.message);
-  return false;
- }
-}
-async function testSheetsConnection(){
- sheetsVerified=false;updateSyncBadge();
- if(!gasUrl){setSheetsDiagnostic('Configure a URL /exec do Apps Script.');return false;}
- try{
-  const data=await remoteRead();
-  sheetsVerified=true;sheetsVersion=Number(data.version)||1;lastRemoteCheck=Date.now();
-  updateSyncBadge();
-  setSheetsDiagnostic(sheetsVersion>=2?'Conexão verificada com o Apps Script v2.':'Conexão verificada com Apps Script anterior. A gravação será confirmada por releitura da planilha.',true);
-  return true;
- }catch(err){
-  sheetsVerified=false;updateSyncBadge();
-  setSheetsDiagnostic('Não consegui consultar a planilha: '+err.message);
-  return false;
- }
-}
-async function syncWithSheets(){
- if(syncInProgress)return false;
- if(!gasUrl){setSheetsDiagnostic('Nota salva no celular. Falta configurar a URL do Apps Script.');return false;}
- if(!sheetsVerified){if(!await testSheetsConnection())return false;}
- if(!syncQueue.length){updateSyncBadge();return true;}
- syncInProgress=true;
- let saved=0,unconfirmed=0,conflicts=0;
- try{
-  // Primeiro consultar o Sheets: uma nota já gravada não pode ser reenviada por engano.
-  let remote=await remoteRead();
-  for(const item of [...syncQueue]){
-   const rows=remote.turmas[item.turma]||[];
-   const existing=rows.find(r=>Number(r['Nº'])===Number(item.num));
-   if(existing&&existing.Status==='Corrigida'&&matchesServer(item,existing)){
-    syncQueue=syncQueue.filter(r=>!(r.turma===item.turma&&Number(r.num)===Number(item.num)));
-    if(db[item.turma]&&db[item.turma][item.num])db[item.turma][item.num].cloudConfirmed=true;
-    saved++;continue;
+  const remote=await getSheet();let verified=0,conflicts=0;
+  for(const t of ['1A','1B'])for(const row of remote.turmas[t]){
+   const n=Number(row['Nº']),st=ROSTERS[t].find(x=>x.num===n),pending=queue.find(x=>x.turma===t&&Number(x.num)===n);
+   if(!st||row.Tipo!==st.type)continue;
+   if(row.Status!=='Corrigida'){
+    if(!pending)delete db[t][n];continue; // servidor é fonte de verdade
    }
-   if(existing&&existing.Status==='Corrigida'&&!matchesServer(item,existing)){
-    const serverScores=scoreFromSheet(existing);
-    if(db[item.turma]&&db[item.turma][item.num]&&serverScores)db[item.turma][item.num].cloudConflict={total:Number(serverScores.reduce((a,b)=>a+b,0).toFixed(2)),checkedAt:Date.now()};
-    conflicts++;continue; // Nunca sobrescrever resultado diferente sem decisão do professor.
-   }
-   try{
-    const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[item]}),redirect:'follow'});
-    if(!response.ok)throw Error('HTTP '+response.status);
-    const json=await response.json();
-    if(json.status==='error'||json.status==='partial')throw Error(json.message||JSON.stringify(json.errors||'Erro no backend'));
-    if(sheetsVersion>=2){
-      const ack=Array.isArray(json.acknowledged)?json.acknowledged:[];
-      if(!ack.some(a=>a.turma===item.turma&&Number(a.num)===Number(item.num)))
-        throw Error('Servidor não confirmou a gravação individual.');
-    }else if(json.status!=='ok')throw Error('Apps Script não confirmou o recebimento.');
-    // Releitura independente é a confirmação definitiva, inclusive no backend legado.
-    remote=await remoteRead();
-    const check=(remote.turmas[item.turma]||[]).find(r=>Number(r['Nº'])===Number(item.num));
-    if(!matchesServer(item,check))throw Error('Servidor respondeu, mas a planilha não contém a mesma pontuação.');
-    syncQueue=syncQueue.filter(r=>!(r.turma===item.turma&&Number(r.num)===Number(item.num)));
-    if(db[item.turma]&&db[item.turma][item.num])db[item.turma][item.num].cloudConfirmed=true;
-    saved++;
-   }catch(err){unconfirmed++;setSheetsDiagnostic('Nota mantida no celular: '+err.message);}
+   const scores=parseScores(row);if(!scores)continue;
+   const stored=db[t][n];
+   if(pending&&(!stored||scores.some((v,i)=>Math.abs(v-pending.scores[i])>.011))){conflicts++;continue}
+   if(pending){queue=queue.filter(x=>!(x.turma===t&&Number(x.num)===n));verified++}
+   db[t][n]={turma:t,num:n,name:st.name,type:st.type,marks:stored?.marks||ZERO(),scores,total:Math.round(scores.reduce((a,b)=>a+b,0)*100)/100,confirmed:true,updatedAt:String(row.Atualizado_Em||'')};
   }
-  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
-  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
-  updateSyncBadge();onTurmaChange();
-  if(saved)showToast(saved+' nota(s) confirmada(s) no Google Sheets.');
-  setSheetsDiagnostic(saved+' nota(s) confirmada(s); '+unconfirmed+' ainda sem confirmação'+(conflicts?'; '+conflicts+' divergência(s) aguardando conferência.':'.'),unconfirmed===0&&conflicts===0);
-  return unconfirmed===0&&conflicts===0;
- }catch(err){
-  setSheetsDiagnostic('Falha de sincronização: '+err.message+'. Registros locais preservados.');
-  return false;
- }finally{syncInProgress=false;updateSyncBadge();}
+  persist();refreshStatus();
+  // Só atualizar o rascunho se não houver alterações feitas pelo professor.
+  const {t,n}=current();if(!dirty&&db[t]?.[n])marks=db[t][n].marks.slice();
+  renderQuestions();renderGrades();renderStats();
+  studentStatusOnly();
+  if(notify)$('sheetsMessage').textContent='Planilha atualizada. '+verified+' lançamento(s) confirmado(s).'+(conflicts?' '+conflicts+' divergência(s) preservada(s).':'');
+  return remote;
+ }catch(e){if(notify)$('sheetsMessage').textContent='Não foi possível consultar a planilha: '+String(e.message||e);throw e}
 }
-function updateSyncBadge() {
- const b=document.getElementById('syncStatusBadge'),q=document.getElementById('queueInfo');
- const amount=syncQueue.length;
- b.textContent=amount?'Aguardando confirmação: '+amount:(sheetsVerified?'Planilha acessível':'Planilha não verificada');
- b.style.background=amount?'#fef3c7':(sheetsVerified?'#dcfce7':'#fee2e2');
- b.style.color=amount?'#92400e':(sheetsVerified?'#166534':'#991b1b');
- if(q)q.textContent=amount+' nota(s) locais pendentes. Atualize o status para conferir os registros que já estão no Sheets.';
+function studentStatusOnly(){
+ const {t,n,st}=current();if(!st)return;
+ const saved=db[t][n],pending=queue.some(x=>x.turma===t&&Number(x.num)===n);
+ $('studentMeta').textContent=st.name+' · Tipo '+st.type+' · '+(pending?'Aguardando sincronização':saved?(saved.confirmed?'Corrigida no Google Sheets':'Salva no celular'):'Pendente');
 }
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  setTimeout(() => t.classList.add('hidden'), 3000);
+async function sync(){
+ if(sending)return;
+ if(!gasUrl){$('sheetsMessage').textContent='Configure a URL do Apps Script.';return}
+ sending=true;
+ try{
+  let remote=await getSheet();
+  for(const record of queue.slice()){
+   const row=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===record.num);
+   if(row&&row.Status==='Corrigida'){
+    const vals=parseScores(row);
+    if(vals&&vals.every((x,i)=>Math.abs(x-record.scores[i])<.011)){
+     queue=queue.filter(q=>!(q.turma===record.turma&&q.num===record.num));if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;continue;
+    }
+    // Substituição explicitamente permitida no clique Salvar do aluno.
+    if(!record.replace){$('sheetsMessage').textContent='Nota diferente já existe no Sheets para '+record.turma+' nº '+record.num+'.';continue}
+   }
+   const reply=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[record]}),redirect:'follow'});
+   if(!reply.ok)throw Error('HTTP '+reply.status);
+   const result=await reply.json();if(result.status==='error'||result.status==='partial'||result.status!=='ok'||result.updated===0)throw Error(result.message||'Gravação não confirmada pelo Apps Script.');
+   remote=await getSheet();
+   const saved=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===record.num),scores=saved&&parseScores(saved);
+   if(saved?.Status!=='Corrigida'||!scores||scores.some((x,i)=>Math.abs(x-record.scores[i])>.011))throw Error('A planilha não confirmou as mesmas notas por questão.');
+   queue=queue.filter(q=>!(q.turma===record.turma&&q.num===record.num));if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;
+  }
+  persist();studentStatusOnly();renderGrades();refreshStatus();$('sheetsMessage').textContent='Sincronização concluída.';
+ }catch(e){$('sheetsMessage').textContent='Sem confirmação da planilha: '+String(e.message||e)+'. Nota mantida no celular.'}
+ finally{sending=false;refreshStatus()}
 }
-
-window.addEventListener('online', () => { if (gasUrl && syncQueue.length > 0) syncWithSheets(); });
-init();
-</script>
-</body>
-</html>
+async function save(){
+ const {t,n,st}=current();if(!st)return;
+ const calc=calculated(t,st,marks),prior=db[t]?.[n];
+ const replacing=Boolean(prior||queue.some(x=>x.turma===t&&x.num===n));
+ if(replacing&&!confirm('Substituir a nota existente de '+st.name+' por '+fmt(calc.total)+'?'))return;
+ const rec={turma:t,num:n,name:st.name,type:st.type,marks:getMarks(),scores:calc.scores,total:calc.total,updatedAt:new Date().toISOString(),replace:replacing};
+ db[t][n]={...rec,confirmed:false};queue=queue.filter(x=>!(x.turma===t&&x.num===n));queue.push(rec);
+ persist();dirty=false;studentStatusOnly();refreshStatus();toast('Salvo no celular. Conferindo gravação no Sheets…');
+ await sync();if(!queue.some(x=>x.turma===t&&x.num===n))toast('Nota '+fmt(calc.total)+' confirmada no Google Sheets.');
+}
+async function resetStudent(){
+ if(resetting||sending)return;
+ const {t,n,st}=current();if(!st)return;
+ if(!confirm('Excluir a nota salva de '+st.name+' ('+t+', nº '+n+') e voltar para Pendente?'))return;
+ if(!gasUrl){$('resetMsg').textContent='Reset não realizado: falta a URL da planilha.';return}
+ resetting=true;$('reset').disabled=true;$('resetMsg').textContent='Excluindo a nota no Google Sheets…';
+ try{
+  const sheet=await getSheet();
+  if(remoteVersion<4)throw Error('A implantação do Apps Script ainda não possui o comando de reset. É necessário atualizar a implantação para a versão 4.');
+  const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify({action:'reset',scope:'student',turma:t,num:n,confirmed:true}),redirect:'follow'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const result=await response.json();
+  if(result.status!=='ok'||result.action!=='reset'||!result.reset?.some(x=>x.turma===t&&Number(x.num)===n))throw Error(result.message||'O serviço não confirmou o reset.');
+  const after=await getSheet();
+  const row=(after.turmas[t]||[]).find(r=>Number(r['Nº'])===n);
+  if(!row||row.Status!=='Pendente')throw Error('A planilha não confirmou o status Pendente. O reset local foi cancelado.');
+  delete db[t][n];queue=queue.filter(x=>!(x.turma===t&&x.num===n));persist();
+  localStorage.removeItem(IMPORT_KEY);marks=ZERO();dirty=false;renderQuestions();studentStatusOnly();renderGrades();renderStats();refreshStatus();
+  $('resetMsg').textContent='Nota excluída no aplicativo e no Google Sheets. Aluno Pendente.';
+ }catch(e){$('resetMsg').textContent='Não foi possível resetar: '+String(e.message||e)+'. A nota local não foi excluída.'}
+ finally{resetting=false;$('reset').disabled=false}
+}
+async function openQr(){
+ if(qrStream){closeQr();return}
+ if(!navigator.mediaDevices?.getUserMedia){toast('Este navegador não permite a câmera nesta página. Selecione o aluno pela lista.');return}
+ try{
+  qrBusy=false;qrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
+  const v=$('qrVideo');v.srcObject=qrStream;v.classList.remove('hide');await v.play();
+  $('qrButton').textContent='Fechar câmera';
+  if(!('BarcodeDetector' in window)){toast('Seu navegador não reconhece QR nativamente. Selecione o aluno pela lista.');return}
+  const detector=new BarcodeDetector({formats:['qr_code']});
+  qrTimer=setInterval(async()=>{
+   if(qrBusy||!qrStream)return;
+   qrBusy=true;try{
+    const codes=await detector.detect(v);
+    const raw=codes[0]?.rawValue;
+    if(raw){const parts=String(raw).split('|');if(parts[0]==='PSS1'&&['1A','1B'].includes(parts[1])){
+     const n=Number(parts[2]),st=ROSTERS[parts[1]].find(a=>a.num===n);
+     if(st&&st.type===parts[3]){closeQr();$('group').value=parts[1];groupChange(n);openCard(true);return}
+    }}
+   }catch(e){}finally{qrBusy=false}
+  },450);
+ }catch(e){closeQr();toast('Erro de câmera: '+String(e.message||e))}
+}
+function closeQr(){
+ if(qrTimer!==null){clearInterval(qrTimer);qrTimer=null}
+ if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null}
+ const v=$('qrVideo');v.pause();v.srcObject=null;v.classList.add('hide');$('qrButton').textContent='Ler QR Code';
+}
+function openCard(fromQr=false){
+ const {t,n,st}=current();if(!st)return;
+ closeQr();
+ // Após o QR, abrir o leitor automaticamente; o navegador pode solicitar novo consentimento.
+ location.href='scanner.html?turma='+encodeURIComponent(t)+'&num='+n+'&tipo='+st.type+(fromQr?'&auto=1':'');
+}
+function renderGrades(){
+ const t=$('gradeGroup').value,table=$('gradeTable');
+ table.innerHTML='<thead><tr><th>Nº</th><th>Aluno</th><th>Tipo</th><th>Status</th><th>Nota</th></tr></thead>';
+ const body=document.createElement('tbody');
+ for(const st of ROSTERS[t]){const rec=db[t]?.[st.num],tr=document.createElement('tr');
+  for(const value of [String(st.num).padStart(2,'0'),st.name,st.type,rec?(rec.confirmed?'Corrigida':'Local'):'Pendente',rec?fmt(rec.total):'—']){
+   const td=document.createElement('td');td.textContent=value;tr.append(td)}
+  body.append(tr)
+ }
+ table.append(body);
+}
+function renderStats(){
+ const items=Object.values(db['1A']).concat(Object.values(db['1B']));
+ const confirmed=items.filter(i=>i.confirmed),sum=confirmed.reduce((a,r)=>a+r.total,0);
+ $('statsOut').innerHTML='<div class="stat">Total de estudantes: 46</div><div class="stat">Provas confirmadas na planilha: '+confirmed.length+'</div><div class="stat">Média das corrigidas: '+(confirmed.length?fmt(sum/confirmed.length):'—')+'</div>';
+}
+function importOmr(){
+ const raw=localStorage.getItem(IMPORT_KEY);if(!raw)return;
+ localStorage.removeItem(IMPORT_KEY);
+ try{const rec=JSON.parse(raw),t=rec.turma,n=Number(rec.num),st=ROSTERS[t]?.find(s=>s.num===n);
+  if(!st||st.type!==rec.tipo||!Array.isArray(rec.marks)||rec.marks.length!==10||rec.marks.some(x=>!Number.isInteger(x)||x<0||x>15)){toast('Respostas do cartão inválidas.');return}
+  $('group').value=t;groupChange(n);marks=rec.marks.slice();dirty=true;renderQuestions();toast('Respostas importadas. Confira os quadradinhos e toque em Salvar nota.');
+ }catch(e){toast('Não foi possível importar a leitura do cartão.')}
+}
+function exportCsv(){
+ const t=$('gradeGroup').value,rows=[['Nº','Estudante','Tipo','Status','Nota']];
+ ROSTERS[t].forEach(st=>{const rec=db[t][st.num];rows.push([st.num,st.name,st.type,rec?'Corrigida':'Pendente',rec?fmt(rec.total):''])});
+ const csv=rows.map(row=>row.map(cell=>'"'+String(cell).replaceAll('"','""')+'"').join(';')).join('\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='PSS1_'+t+'.csv';a.click();URL.revokeObjectURL(a.href);
+}
+function hook(){
+ $('tabCorrect').onclick=()=>showTab('correct');$('tabGrades').onclick=()=>showTab('grades');$('tabStats').onclick=()=>showTab('stats');$('tabConfig').onclick=()=>showTab('config');
+ $('group').onchange=()=>groupChange();$('student').onchange=studentChange;$('qrButton').onclick=openQr;$('cardButton').onclick=()=>openCard(false);
+ $('save').onclick=save;$('clear').onclick=clearDraft;$('reset').onclick=resetStudent;$('gradeGroup').onchange=renderGrades;$('refresh').onclick=()=>reconcile();
+ $('gas').value=gasUrl;$('saveUrl').onclick=()=>{const val=$('gas').value.trim();if(val&&!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(val)){$('sheetsMessage').textContent='URL inválida';return}gasUrl=val;localStorage.setItem(GAS_KEY,val);$('sheetsMessage').textContent='URL salva. Verifique a conexão.'};
+ $('checkUrl').onclick=()=>reconcile();$('sync').onclick=sync;
+}
+hook();groupChange();importOmr();renderGrades();renderStats();refreshStatus();
+if(gasUrl)reconcile({notify:false}).then(()=>{if(queue.length)sync()}).catch(()=>{});
+window.addEventListener('pagehide',closeQr);
+</script></body></html>
