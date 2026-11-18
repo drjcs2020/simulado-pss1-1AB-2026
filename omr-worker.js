@@ -54,10 +54,10 @@ function decode(data){
      if(yy>=0&&yy<h){n++;hits+=dark[yy*w+x]}
     }
     const ratio=n?hits/n:0;
-    lined+=ratio;if(ratio>.60)well++;
+    lined+=ratio;if(ratio>.50)well++;
    }
    const score=lined/10;
-   if(well>=8&&score>.73&&score>bestScore){bestScore=score;bestY=y}
+   if(well>=7&&score>.53&&score>bestScore){bestScore=score;bestY=y}
   }
   if(bestY&&(!top||c.score>top.score)){top=c;lower=bestY}
  }
