@@ -1,8 +1,8 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Corretor PSS1 · Matemática 2026</title><style>
 :root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#152743;background:#f2f5f9}
-*{box-sizing:border-box}body{margin:0;padding-bottom:26px}header{background:#173b75;color:white;padding:15px}header h1{margin:0;font-size:19px}header small{opacity:.9}
-main{max-width:940px;margin:auto;padding:12px}.pane{background:white;border:1px solid #dce3ed;border-radius:12px;padding:14px;margin-bottom:13px}
-nav{display:flex;gap:5px;overflow:auto;margin-bottom:12px}nav button{flex:1;white-space:nowrap}
+*{box-sizing:border-box}body{margin:0;padding-bottom:26px}header{background:#173b75;color:white;padding:8px 12px}header h1{margin:0;font-size:16px}
+main{max-width:940px;margin:auto;padding:8px}.pane{background:white;border:1px solid #dce3ed;border-radius:12px;padding:10px;margin-bottom:8px}
+nav{display:flex;gap:5px;overflow:auto;margin-bottom:8px}nav button{flex:1;white-space:nowrap}
 button,select,input{font:inherit;padding:10px;border-radius:8px}button{border:0;background:#1e407e;color:#fff;cursor:pointer;font-weight:650}button:disabled{opacity:.55}
 button.secondary{background:#e9eef7;color:#233b5a}button.danger{background:#a44719}button.positive{background:#166e4b}
 button.active{outline:3px solid #8db6fa}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1 1 160px}.hide{display:none!important}
@@ -21,20 +21,20 @@ table{width:100%;border-collapse:collapse}td,th{font-size:12px;border-bottom:1px
 .summary{font-size:20px;font-weight:800;color:#183c75}
 @media(max-width:530px){nav button{font-size:11px;padding:9px 5px}.question{gap:4px}.question .qname{width:62px}.choice{min-width:34px;height:38px}.score{width:54px;font-size:12px}}
 </style></head><body>
-<header><h1>Corretor PSS1 · Matemática 2026</h1><small>1º A e 1º B · proposições 01, 02, 04, 08</small><div id="connection">Planilha ainda não verificada</div></header>
+<header><h1>Corretor PSS1</h1></header>
 <main><nav><button id="tabCorrect" class="active" type="button">Corrigir</button><button id="tabGrades" type="button">Boletim</button><button id="tabStats" type="button">Estatísticas</button><button id="tabConfig" type="button">Planilha</button></nav>
 <section id="correct">
 <div class="pane"><div class="row"><button id="qrButton" type="button">Ler QR Code</button><button id="cardButton" type="button" class="secondary">Ler cartão</button></div>
 <video id="qrVideo" class="video hide" playsinline autoplay muted></video>
 <div class="row" style="margin-top:12px"><label>Turma<select id="group"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><label>Aluno<select id="student"></select></label></div>
 <div id="studentMeta"></div><div id="message"></div></div>
-<div class="pane"><div class="row"><strong>Marque as proposições verdadeiras</strong><span class="summary" id="total">0,00 / 10,00</span></div>
+<div class="pane"><div class="row"><span class="summary" id="total">0,00 / 10,00</span></div>
 <div id="questions"></div>
 <div class="row" style="margin-top:14px"><button id="save" class="positive">Salvar nota</button><button id="clear" class="secondary">Limpar marcações</button><button id="reset" class="danger">Resetar nota do aluno</button></div>
 <div id="resetMsg"></div></div></section>
 <section id="grades" class="hide"><div class="pane"><div class="row"><label>Turma<select id="gradeGroup"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><button id="refresh">Atualizar planilha</button></div><div style="overflow:auto"><table id="gradeTable"></table></div></div></section>
 <section id="stats" class="hide"><div class="pane"><h3>Resumo de correções</h3><div id="statsOut"></div></div></section>
-<section id="config" class="hide"><div class="pane"><h3>Conexão com Google Sheets</h3><p style="font-size:13px">Informe uma vez a URL /exec do Apps Script; ela fica armazenada neste aparelho.</p><input id="gas" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+<section id="config" class="hide"><div class="pane"><h3>Conexão com Google Sheets</h3><div id="connection">Planilha ainda não verificada</div><p style="font-size:13px">Informe uma vez a URL /exec do Apps Script; ela fica armazenada neste aparelho.</p><input id="gas" type="url" placeholder="https://script.google.com/macros/s/.../exec">
 <div class="row" style="margin-top:10px"><button id="saveUrl">Salvar URL</button><button id="checkUrl" class="secondary">Verificar</button><button id="sync" class="secondary">Sincronizar</button></div>
 <p id="sheetsMessage"></p></div></section>
 </main>
