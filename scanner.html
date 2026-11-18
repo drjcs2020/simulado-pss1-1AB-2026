@@ -1,12 +1,21 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>1. Fotografe a terceira página inteira, com boa luz e sem reflexos. 2. Toque, nesta ordem, o centro dos quatro quadrados de referência: <b>Q01 unidade 0</b> (superior esquerdo), <b>Q10 unidade 0</b> (superior direito), <b>Q10 unidade 9</b> (inferior direito), <b>Q01 unidade 9</b> (inferior esquerdo). 3. Confira cada resposta antes de enviar.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>1. Fotografe a terceira página inteira, com boa luz e sem reflexos. 2. O modo automático encontra os pontos da grade na imagem, sem exigir quatro toques. Se a foto ficar torta, ative o modo manual e toque, nesta ordem: <b>Q01 unidade 0</b> (superior esquerdo), <b>Q10 unidade 0</b> (superior direito), <b>Q10 unidade 9</b> (inferior direito), <b>Q01 unidade 9</b> (inferior esquerdo). 3. Confira cada resposta antes de enviar.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="autoModo">Automático (sem pontos)</button><button id="manualModo">Manual (4 pontos)</button><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
 const qs=new URLSearchParams(location.search), turma=qs.get('turma'),num=Number(qs.get('num')),tipo=qs.get('tipo');
 document.getElementById('aluno').textContent='Turma '+(turma||'?')+' · Nº '+(num||'?')+' · Tipo '+(tipo||'?');
-const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null;
+const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null,autoMode=true;
+const automaticReference=()=>{
+ if(!img)return false;
+ // Coordenadas normalizadas para o cartão didático completo, visto de frente.
+ // Ref. Q01 unidade 0, Q10 unidade 0, Q10 unidade 9, Q01 unidade 9.
+ points=[{x:c.width*.1243,y:c.height*.5147},{x:c.width*.9164,y:c.height*.5147},{x:c.width*.9164,y:c.height*.8241},{x:c.width*.1243,y:c.height*.8241}];
+ draw();return true;
+};
+document.getElementById('autoModo').onclick=()=>{autoMode=true;if(img){automaticReference();estado.textContent='Modo automático: clique em Ler 20 dígitos.';}else estado.textContent='Modo automático selecionado. Escolha a imagem.';};
+document.getElementById('manualModo').onclick=()=>{autoMode=false;points=[];draw();estado.textContent='Modo manual: toque '+labels[0];};
 const labels=['Q01: unidade 0','Q10: unidade 0','Q10: unidade 9','Q01: unidade 9'];
 function draw(){if(!img)return;cx.drawImage(img,0,0,c.width,c.height);cx.lineWidth=Math.max(2,c.width/450);points.forEach((p,i)=>{cx.beginPath();cx.strokeStyle='#dc2626';cx.arc(p.x,p.y,c.width/100,0,Math.PI*2);cx.stroke();cx.fillStyle='#dc2626';cx.font=(c.width/45)+'px sans-serif';cx.fillText(String(i+1),p.x+12,p.y-12)});}
-foto.onchange=()=>{const f=foto.files[0];if(!f)return;const url=URL.createObjectURL(f),i=new Image();i.onload=()=>{const scale=Math.min(1,1800/i.width);c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);img=i;points=[];answers=null;document.getElementById('enviar').disabled=true;draw();estado.textContent='Toque: '+labels[0];URL.revokeObjectURL(url)};i.src=url};
-document.getElementById('recomecar').onclick=()=>{points=[];answers=null;draw();estado.textContent='Toque: '+labels[0];};
-c.onclick=e=>{if(!img||points.length===4)return;const r=c.getBoundingClientRect();points.push({x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height});draw();estado.textContent=points.length===4?'Pronto para analisar.':'Toque: '+labels[points.length];};
+foto.onchange=()=>{const f=foto.files[0];if(!f)return;const url=URL.createObjectURL(f),i=new Image();i.onload=()=>{const scale=Math.min(1,1800/i.width);c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);img=i;points=[];answers=null;document.getElementById('enviar').disabled=true;draw();if(autoMode){automaticReference();estado.textContent='Modo automático pronto. Clique em Ler 20 dígitos.';}else estado.textContent='Toque: '+labels[0];URL.revokeObjectURL(url)};i.src=url};
+document.getElementById('recomecar').onclick=()=>{points=[];answers=null;draw();if(autoMode){automaticReference();estado.textContent='Modo automático pronto.';}else estado.textContent='Toque: '+labels[0];};
+c.onclick=e=>{if(!img||autoMode||points.length===4)return;const r=c.getBoundingClientRect();points.push({x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height});draw();estado.textContent=points.length===4?'Pronto para analisar.':'Toque: '+labels[points.length];};
 
 function xy(question,digit,column) {
   const u=question/9,v=digit/9,[a,b,d,e]=points;
@@ -16,7 +25,7 @@ function xy(question,digit,column) {
   // dezena e unidade; entre questões a distância é 1,68 cm.
   const pitchX=((b.x-a.x)+(d.x-e.x))/18;
   const pitchY=((b.y-a.y)+(d.y-e.y))/18;
-  const shift=column==='dezena'?-0.54/1.68:0;
+  const shift=column==='dezena'?-0.325:0;
   return {x:x+pitchX*shift,y:y+pitchY*shift};
 }
 function density(data,x,y,r){
@@ -33,11 +42,11 @@ function density(data,x,y,r){
   return total?dark/total:0;
 }
 document.getElementById('analisar').onclick=()=>{
-  if(points.length!==4){estado.textContent='Primeiro marque os quatro quadrados de referência.';return;}
+  if(!img){estado.textContent='Primeiro selecione uma foto do cartão.';return;}if(autoMode&&points.length!==4)automaticReference();if(points.length!==4){estado.textContent='No modo manual, marque os quatro quadrados de referência.';return;}
   draw();
   const pix=cx.getImageData(0,0,c.width,c.height).data;
   const pitch=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)/9;
-  const r=Math.max(2,Math.round(pitch*0.077));
+  const r=Math.max(2,Math.round(pitch*0.08));
   answers=[];
   let html='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Conferência</th></tr>';
   for(let question=0;question<10;question++){
@@ -51,7 +60,7 @@ document.getElementById('analisar').onclick=()=>{
       }
       const sorted=vals.map((v,d)=>({v,d})).sort((a,b)=>b.v-a.v);
       pair.push(sorted[0].d);
-      if(sorted[0].v<.34 || (sorted[1] && sorted[0].v-sorted[1].v<.18))uncertain=true;
+      if(sorted[0].v<.28 || (sorted[1] && sorted[0].v-sorted[1].v<.12))uncertain=true;
     }
     const sum=pair[0]*10+pair[1];
     if(sum>15)uncertain=true;
