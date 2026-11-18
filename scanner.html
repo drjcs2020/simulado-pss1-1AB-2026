@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>O aplicativo tenta alinhar os <strong>quatro cantos externos da grade</strong> automaticamente. Se precisar, use <strong>Ajustar quatro cantos</strong>: toque nos cantos da área das 10 colunas (não nos quadradinhos de resposta), na ordem indicada. Depois clique em <strong>Ler 20 dígitos</strong>.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="autoModo">Automático (sem pontos)</button><button id="manualModo">Manual (4 pontos)</button><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>Fotografe a área de respostas com as dez colunas completas. Toque em <strong>Ler 20 dígitos</strong>. O leitor encontra os dez retângulos automaticamente, sem precisar marcar cantos com o dedo.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="autoModo">Automático (sem pontos)</button><button id="manualModo">Manual (4 pontos)</button><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
 const qs=new URLSearchParams(location.search), turma=qs.get('turma'),num=Number(qs.get('num')),tipo=qs.get('tipo');
 document.getElementById('aluno').textContent='Turma '+(turma||'?')+' · Nº '+(num||'?')+' · Tipo '+(tipo||'?');
 const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null,autoMode=true;
@@ -53,152 +53,109 @@ function darkAt(x,y){
  const k=(y*c.width+x)*4,p=imagePixels.data;
  return p[k]*.299+p[k+1]*.587+p[k+2]*.114 < 130 ? 1:0;
 }
-function detectCorners(){
- const w=c.width,h=c.height;
- if(!imagePixels||w<450||h<450)throw Error('Foto pequena');
- // Detectar linhas verticais longas de altura semelhante: duas bordas por bloco.
- // Não exigir quantidade fixa de linhas, nem linhas horizontais contínuas.
- const candidates=[],minimum=Math.floor(h*.15),tol=Math.max(1,Math.round(h*.002));
- for(let x=0;x<w;x++){
-  let begin=-1,last=-1,best=0,from=0,to=0;
-  for(let y=0;y<h;y++){
-   if(darkAt(x,y)){
-    if(begin<0)begin=y;last=y;
-   }else if(begin>=0&&y-last>tol){
-    const n=last-begin+1;
-    if(n>best){best=n;from=begin;to=last;}
-    begin=-1;
+
+function decodeImageData(imageData) {
+ const w=imageData.width,h=imageData.height,rgba=imageData.data,n=w*h;
+ const bw=new Uint8Array(n),seen=new Uint8Array(n),queue=new Int32Array(n);
+ for(let i=0,j=0;i<n;i++,j+=4)bw[i]=rgba[j]*.299+rgba[j+1]*.587+rgba[j+2]*.114<150?1:0;
+ const candidates=[];
+ for(let index=0;index<n;index++){
+  if(!bw[index]||seen[index])continue;
+  let head=0,tail=1;queue[0]=index;seen[index]=1;
+  let minX=w,maxX=0,minY=h,maxY=0,area=0;
+  while(head<tail){
+   const p=queue[head++],y=(p/w)|0,x=p-y*w;area++;
+   if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+   for(let dy=-1;dy<=1;dy++){
+    const ny=y+dy;if(ny<0||ny>=h)continue;
+    for(let dx=-1;dx<=1;dx++){
+     const nx=x+dx;if(nx<0||nx>=w)continue;
+     const z=ny*w+nx;
+     if(bw[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
+    }
    }
   }
-  if(begin>=0&&last-begin+1>best){best=last-begin+1;from=begin;to=last;}
-  if(best>=minimum)candidates.push({x,from,to});
+  const ww=maxX-minX+1,hh=maxY-minY+1;
+  if(ww>.028*w&&ww<.16*w&&hh>.10*h&&hh<.72*h&&minY>.10*h&&hh/ww>2&&area>ww*hh*.007)
+   candidates.push({x:minX,y:minY,w:ww,h:hh,area});
  }
- if(candidates.length<10)throw Error('Bordas longas insuficientes');
- const bin=Math.max(3,Math.round(h*.012));
- let best=[],clusters=new Map();
- for(const item of candidates){
-  const key=Math.round(item.from/bin)+'|'+Math.round(item.to/bin);
-  if(!clusters.has(key))clusters.set(key,[]);
-  clusters.get(key).push(item);
- }
- for(const group of clusters.values()){
-  if(group.length>best.length)best=group;
- }
- if(best.length<8)throw Error('Grupo de colunas indefinido');
- const from=best.reduce((a,v)=>a+v.from,0)/best.length,to=best.reduce((a,v)=>a+v.to,0)/best.length;
- const aligned=candidates.filter(z=>Math.abs(z.from-from)<bin*2.5&&Math.abs(z.to-to)<bin*2.5);
- const xs=aligned.map(z=>z.x).sort((a,b)=>a-b);
- if(xs.length<8)throw Error('Não há bordas suficientes');
- // Evitar fusão das bordas e linhas internas: usar extremos de grupo coerente.
- const minX=xs[0],maxX=xs[xs.length-1],width=maxX-minX;
- if(width<w*.35||to-from<h*.13)throw Error('Região da grade incompleta');
- const pts=[{x:minX,y:from},{x:maxX,y:from},{x:maxX,y:to},{x:minX,y:to}];
- if(pts.some(p=>!Number.isFinite(p.x+p.y)))throw Error('Coordenadas inválidas');
- return pts;
-}
-function sampleGrid(u,v){
- const [tl,tr,br,bl]=corners;
- return {x:(1-u)*(1-v)*tl.x+u*(1-v)*tr.x+u*v*br.x+(1-u)*v*bl.x,
-         y:(1-u)*(1-v)*tl.y+u*(1-v)*tr.y+u*v*br.y+(1-u)*v*bl.y};
-}
-function densityAt(u,v,halfX,halfY){
- const p=sampleGrid(u,v);
- const px=sampleGrid(u+halfX,v), py=sampleGrid(u,v+halfY);
- const rx=Math.max(2,Math.round(Math.hypot(px.x-p.x,px.y-p.y)));
- const ry=Math.max(2,Math.round(Math.hypot(py.x-p.x,py.y-p.y)));
- let count=0,total=0;
- for(let dy=-ry;dy<=ry;dy++)for(let dx=-rx;dx<=rx;dx++){
-  if(dx*dx/(rx*rx)+dy*dy/(ry*ry)>1)continue;
-  count+=darkAt(p.x+dx,p.y+dy);total++;
- }
- return total?count/total:0;
-}
-function decode(){
- if(!img)throw Error('Selecione a fotografia do cartão.');
- if(corners.length!==4)throw Error('Alinhe os quatro cantos externos da grade.');
- const upperWidth=Math.hypot(corners[1].x-corners[0].x,corners[1].y-corners[0].y);
- const lowerWidth=Math.hypot(corners[2].x-corners[3].x,corners[2].y-corners[3].y);
- const sideHeight=Math.hypot(corners[3].x-corners[0].x,corners[3].y-corners[0].y);
- if(Math.min(upperWidth,lowerWidth)<c.width*.35||sideHeight<c.height*.10)throw Error('Os quatro pontos não delimitam toda a grade.');
- const output=[];
+ const blocks=candidates.sort((a,b)=>a.x-b.x);
+ if(blocks.length!==10)return {error:'Encontrei '+blocks.length+' blocos de respostas; são necessários dez. Fotografe as colunas 01 a 10 de frente, com a grade inteira.',blocks};
+ const heights=blocks.map(b=>b.h).sort((a,b)=>a-b),medianH=heights[5];
+ const widths=blocks.map(b=>b.w).sort((a,b)=>a-b),medianW=widths[5];
+ if(blocks.some(b=>Math.abs(b.h-medianH)>medianH*.17||Math.abs(b.w-medianW)>medianW*.20))
+  return {error:'As colunas estão inclinadas ou com distorção excessiva para corrigir com segurança.',blocks};
+ const results=[];
  for(let q=0;q<10;q++){
-  const columns=[];
-  for(const [offset,n] of [[.30,2],[.67,10]]){
+  const b=blocks[q],cols=[];
+  for(const [fx,num] of [[.329,2],[.673,10]]){
    const scores=[];
-   for(let digit=0;digit<n;digit++){
-    const u=(q+offset)/10,v=.150+.0855*digit;
-    scores.push(densityAt(u,v,.0055,.013));
+   for(let d=0;d<num;d++){
+    const cx0=Math.round(b.x+b.w*fx),cy=Math.round(b.y+b.h*(.149+.0855*d));
+    const rx=Math.max(2,Math.round(b.w*.055)),ry=Math.max(2,Math.round(b.h*.016));
+    let black=0,total=0;
+    for(let y=Math.max(0,cy-ry);y<=Math.min(h-1,cy+ry);y++)
+     for(let x=Math.max(0,cx0-rx);x<=Math.min(w-1,cx0+rx);x++){
+      black+=bw[y*w+x];total++;
+     }
+    scores.push(black/total);
    }
-   const ranked=scores.map((score,digit)=>({score,digit})).sort((a,b)=>b.score-a.score);
-   columns.push({digit:ranked[0].digit,score:ranked[0].score,margin:ranked[0].score-ranked[1].score,offset});
+   const sorted=scores.map((score,digit)=>({score,digit})).sort((a,b)=>b.score-a.score);
+   cols.push({digit:sorted[0].digit,score:sorted[0].score,margin:sorted[0].score-sorted[1].score,fx});
   }
-  const value=10*columns[0].digit+columns[1].digit;
-  const reliable=value<=15&&columns.every(z=>z.score>=.48&&z.margin>=.23);
-  output.push({value,parsed:columns,reliable});
+  const value=10*cols[0].digit+cols[1].digit;
+  results.push({value,cols,reliable:value<=15&&cols.every(z=>z.score>.65&&z.margin>.35),box:b});
  }
- draw();
- for(let q=0;q<10;q++)for(let i=0;i<2;i++){
-  const z=output[q].parsed[i],p=sampleGrid((q+z.offset)/10,.150+.0855*z.digit);
-  const rad=Math.max(3,Math.min(c.width,c.height)/160);
-  cx.strokeStyle=output[q].reliable?'#16a34a':'#dc2626';
-  cx.strokeRect(p.x-rad,p.y-rad,rad*2,rad*2);
- }
- return output;
+ return {results,blocks};
 }
-document.getElementById('autoModo').onclick=()=>{
- cornerMode='auto';
- if(!img){markStatus('Selecione a foto.');return;}
- try{corners=detectCorners();draw();markStatus('Quatro cantos alinhados automaticamente. Leia os 20 dígitos.');}
- catch(e){corners=[];draw();markStatus('Alinhamento automático indisponível. Use Ajustar quatro cantos.');}
+function draw(){
+ if(!img)return;
+ cx.drawImage(img,0,0,c.width,c.height);
+}
+foto.onchange=()=>{
+ const f=foto.files[0];if(!f)return;
+ const url=URL.createObjectURL(f),loaded=new Image();
+ loaded.onload=()=>{
+  const scale=Math.min(1,1100/loaded.width);
+  c.width=Math.round(loaded.width*scale);c.height=Math.round(loaded.height*scale);
+  img=loaded;answers=null;resultado.innerHTML='';
+  document.getElementById('enviar').disabled=true;
+  draw();estado.textContent='Imagem carregada. Toque em Ler 20 dígitos.';
+  URL.revokeObjectURL(url);
+ };
+ loaded.src=url;
 };
-document.getElementById('manualModo').onclick=()=>{
- cornerMode='manual';corners=[];draw();
- markStatus('Toque no canto externo SUPERIOR ESQUERDO da grade (não no QR Code).');
-};
+document.getElementById('autoModo').style.display='none';
+document.getElementById('manualModo').style.display='none';
+document.getElementById('recomecar').textContent='Reanalisar';
 document.getElementById('recomecar').onclick=()=>{
- answers=null;resultado.innerHTML='';
- document.getElementById('enviar').disabled=true;
- if(img){try{corners=detectCorners();cornerMode='auto';}catch(e){corners=[];cornerMode='manual';}draw();}
- markStatus(corners.length===4?'Alinhamento refeito. Toque em Ler 20 dígitos.':'Toque em Ajustar quatro cantos.');
+ answers=null;resultado.innerHTML='';document.getElementById('enviar').disabled=true;
+ draw();estado.textContent='Toque em Ler 20 dígitos.';
 };
-c.onclick=(event)=>{
- if(!img||cornerMode!=='manual'||corners.length>=4)return;
- const rect=c.getBoundingClientRect();
- const x=(event.clientX-rect.left)*c.width/rect.width;
- const y=(event.clientY-rect.top)*c.height/rect.height;
- // Ajuste do toque para a interseção das bordas no raio de até 2% da largura.
- const radius=Math.max(5,Math.min(35,Math.round(c.width*.014)));
- let best={x,y,score:-1};
- for(let dy=-radius;dy<=radius;dy+=2)for(let dx=-radius;dx<=radius;dx+=2){
-  const px=x+dx,py=y+dy;
-  let horizontal=0,vertical=0;
-  for(let d=-radius;d<=radius;d+=3){
-   horizontal+=darkAt(px+d,py);
-   vertical+=darkAt(px,py+d);
-  }
-  const score=Math.min(horizontal,vertical)-.004*(dx*dx+dy*dy);
-  if(score>best.score)best={x:px,y:py,score};
- }
- corners.push({x:best.x,y:best.y});
- draw();
- markStatus(corners.length<4?'Agora marque o canto '+cornerNames[corners.length]+'.':'Quatro cantos marcados. Toque em Ler 20 dígitos.');
-};
+c.onclick=()=>{};
 document.getElementById('analisar').onclick=()=>{
- let output;
- try{output=decode();}catch(e){
+ if(!img){estado.textContent='Selecione a imagem do cartão primeiro.';return;}
+ draw();
+ const result=decodeImageData(cx.getImageData(0,0,c.width,c.height));
+ if(result.error){
   answers=null;document.getElementById('enviar').disabled=true;
-  resultado.innerHTML='<p class="warn">'+e.message+'</p>';return;
+  resultado.textContent=result.error;
+  estado.textContent='Não foi possível confirmar a grade.';
+  return;
  }
- answers=output;
+ answers=result.results;
+ draw();
+ cx.strokeStyle='#16a34a';cx.lineWidth=Math.max(2,c.width/550);
+ result.blocks.forEach(b=>cx.strokeRect(b.x,b.y,b.w,b.h));
+ const all=answers.every(a=>a.reliable);
  let table='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Leitura</th></tr>';
- output.forEach((r,q)=>{
-  table+='<tr><td>Q'+String(q+1).padStart(2,'0')+'</td><td>'+r.parsed[0].digit+'</td><td>'+r.parsed[1].digit+'</td><td><input type="number" min="0" max="15" step="1" value="'+r.value+'" data-q="'+q+'" style="width:70px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Identificado':'Revisar')+'</td></tr>';
+ answers.forEach((r,i)=>{
+  table+='<tr><td>Q'+String(i+1).padStart(2,'0')+'</td><td>'+r.cols[0].digit+'</td><td>'+r.cols[1].digit+'</td><td><input type="number" data-q="'+i+'" min="0" max="15" step="1" value="'+r.value+'" style="width:65px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Detectado':'Revisar')+'</td></tr>';
  });
- table+='</table><p><small>Confira as somas antes de gravar notas.</small></p>';
+ table+='</table><p><small>As bordas verdes mostram as dez colunas detectadas. Compare os valores com o cartão antes de salvar.</small></p>';
  resultado.innerHTML=table;
- const all=output.every(v=>v.reliable);
  document.getElementById('enviar').disabled=!all;
- markStatus(all?'Dez respostas reconhecidas. Confira antes de enviar.':'Há marcações incertas. Ajuste os cantos ou tire outra foto.');
+ estado.textContent=all?'Dez respostas reconhecidas. Confira antes de enviar.':'Há marcações incertas. Faça uma foto mais nítida.';
 };
 document.getElementById('enviar').onclick=()=>{const inputs=[...resultado.querySelectorAll('input[data-q]')];if(inputs.length!==10)return;const marks=inputs.map(x=>Number(x.value));if(marks.some(v=>!Number.isInteger(v)||v<0||v>15)){alert('Corrija as respostas: devem ficar entre 00 e 15.');return;}if(!confirm('Conferiu visualmente as 10 respostas? Elas NÃO serão salvas até clicar Salvar no corretor.'))return;localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,timestamp:Date.now()}));location.href='index.html?omr=1';};
 </script></body></html>
