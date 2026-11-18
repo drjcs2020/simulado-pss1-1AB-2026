@@ -29,9 +29,9 @@ function Bubble({label,active,onPress}:{label:string,active:boolean,onPress:()=>
 function Button({label,onPress,kind='primary',disabled=false}:{label:string,onPress:()=>void,kind?:'primary'|'green'|'light'|'orange',disabled?:boolean}){
  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,styles[kind],disabled&&{opacity:.45}]}><Text style={[styles.buttonText,kind==='light'&&{color:'#1b3554'}]}>{label}</Text></Pressable>;
 }
-function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
+function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:{
  onStable:(values:number[],boxes:CardBox[])=>void;
- onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];manualChange:(q:number,n:number)=>void;
+ onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];stable:boolean;manualChange:(q:number,n:number)=>void;
 }){
  const device=useCameraDevice('back');
  const asyncRunner=useAsyncRunner();
@@ -115,7 +115,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
    }}/>}
   <View style={styles.cameraTop} pointerEvents="box-none">
     <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
-    <View style={styles.liveBadge}><Text style={styles.whiteText}>● LEITURA AO VIVO</Text></View>
+    <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ LEITURA CONFIRMADA':'● LENDO CARTÃO'}</Text></View>
   </View>
   <View style={styles.cameraBottom} pointerEvents="box-none">
     <Button label="Conferir respostas" kind="green" onPress={onReview}/>
@@ -180,7 +180,7 @@ export default function App(){
    <View style={styles.cameraTop}><Button label="✕ Sair" onPress={()=>setMode('none')}/></View>
    <View style={styles.cameraBottom}><Text style={styles.whiteText}>{status||'Aponte para o QR Code do aluno'}</Text></View>
   </View>;
- if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes}
+ if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes} stable={isStable}
     manualChange={(q,n)=>{edited.current.add(q);setMarks(m=>m.map((v,i)=>i===q?n:v))}}/>;
  return <View style={styles.main}>
   <View style={styles.header}><Text style={styles.appName}>{APP_TITLE}</Text><Text style={styles.school}>{SCHOOL}</Text></View>
