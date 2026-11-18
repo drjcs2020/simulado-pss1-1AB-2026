@@ -79,9 +79,9 @@ const ANSWER_KEYS = {
 };
 const $=id=>document.getElementById(id);
 const ZERO=()=>Array(10).fill(0),fmt=n=>Number(n).toFixed(2).replace('.',',');
-const DB_KEY='pss1_2026_db',QUEUE_KEY='pss1_2026_queue',GAS_KEY='pss1_2026_gas_url',IMPORT_KEY='pss1_omr_pending';
+const DB_KEY='pss1_2026_db',QUEUE_KEY='pss1_2026_queue',DRAFT_KEY='pss1_2026_drafts',GAS_KEY='pss1_2026_gas_url',IMPORT_KEY='pss1_omr_pending';
 function readStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch(e){return fallback}}
-let db=readStorage(DB_KEY,{'1A':{},'1B':{}}),queue=readStorage(QUEUE_KEY,[]),gasUrl=localStorage.getItem(GAS_KEY)||'';
+let db=readStorage(DB_KEY,{'1A':{},'1B':{}}),queue=readStorage(QUEUE_KEY,[]),drafts=readStorage(DRAFT_KEY,{}),gasUrl=localStorage.getItem(GAS_KEY)||'';
 let marks=ZERO(),dirty=false,remoteVersion=0,sending=false,resetting=false,qrStream=null,qrTimer=null,qrBusy=false,currentTab='correct';
 function persist(){localStorage.setItem(DB_KEY,JSON.stringify(db));localStorage.setItem(QUEUE_KEY,JSON.stringify(queue))}
 function score(mask,key){
@@ -90,6 +90,9 @@ function score(mask,key){
  return right?Math.round(picked/right*100)/100:0;
 }
 function current(){const t=$('group').value,n=Number($('student').value);return {t,n,st:(ROSTERS[t]||[]).find(a=>a.num===n)}}
+function draftId(t,n){return t+'|'+n}
+function saveDraft(){const {t,n}=current();drafts[draftId(t,n)]=marks.slice();localStorage.setItem(DRAFT_KEY,JSON.stringify(drafts))}
+function discardDraft(t,n){delete drafts[draftId(t,n)];localStorage.setItem(DRAFT_KEY,JSON.stringify(drafts))}
 function getMarks(){return marks.slice()}
 function calculated(t,st,vals){const scores=vals.map((v,i)=>score(v,ANSWER_KEYS[st.type][i]));return {scores,total:Math.round(scores.reduce((a,b)=>a+b,0)*100)/100}}
 function toast(m){$('message').textContent=m}
@@ -107,7 +110,9 @@ function groupChange(selected){
 }
 function studentChange(){
  const {t,n,st}=current();if(!st)return;
- const saved=db[t]?.[n];marks=Array.isArray(saved?.marks)&&saved.marks.length===10?saved.marks.slice():ZERO();dirty=false;
+ const saved=db[t]?.[n],draft=drafts[draftId(t,n)];
+ marks=Array.isArray(draft)&&draft.length===10?draft.slice():(Array.isArray(saved?.marks)&&saved.marks.length===10?saved.marks.slice():ZERO());
+ dirty=Array.isArray(draft);
  const queued=queue.some(r=>r.turma===t&&Number(r.num)===n);
  const stText=saved?(queued?'Salva neste celular; aguardando planilha':(saved.confirmed?'Corrigida no Google Sheets':'Salva no celular')):'Pendente';
  $('studentMeta').textContent=st.name+' · Tipo '+st.type+' · '+stText;
@@ -126,14 +131,14 @@ function renderQuestions(){
   for(const w of [1,2,4,8]){
    const button=document.createElement('button');button.className='choice'+((m&w)?' selected':'');button.type='button';button.textContent=String(w).padStart(2,'0');
    button.setAttribute('aria-pressed',Boolean(m&w));
-   button.onclick=()=>{marks[q]^=w;dirty=true;renderQuestions()};choices.append(button);
+   button.onclick=()=>{marks[q]^=w;dirty=true;saveDraft();renderQuestions()};choices.append(button);
   }
   const right=document.createElement('div');right.className='score';right.textContent=fmt(points);
   row.append(label,choices,right);host.append(row);
  });
  $('total').textContent=fmt(total)+' / 10,00';
 }
-function clearDraft(){marks=ZERO();dirty=true;renderQuestions();toast('Marcações zeradas nesta tela. A nota salva continua intacta.')}
+function clearDraft(){marks=ZERO();dirty=true;saveDraft();renderQuestions();toast('Marcações zeradas e mantidas assim após atualizar. Para excluir uma nota salva, use Resetar nota do aluno.')}
 function refreshStatus(){
  const count=queue.length;$('connection').textContent=count?'Envio pendente: '+count+' nota(s)':remoteVersion?'Planilha acessível':'Planilha não verificada';
 }
@@ -212,7 +217,7 @@ async function save(){
  if(replacing&&!confirm('Substituir a nota existente de '+st.name+' por '+fmt(calc.total)+'?'))return;
  const rec={turma:t,num:n,name:st.name,type:st.type,marks:getMarks(),scores:calc.scores,total:calc.total,updatedAt:new Date().toISOString(),replace:replacing};
  db[t][n]={...rec,confirmed:false};queue=queue.filter(x=>!(x.turma===t&&x.num===n));queue.push(rec);
- persist();dirty=false;studentStatusOnly();refreshStatus();toast('Salvo no celular. Conferindo gravação no Sheets…');
+ persist();discardDraft(t,n);dirty=false;studentStatusOnly();refreshStatus();toast('Salvo no celular. Conferindo gravação no Sheets…');
  await sync();if(!queue.some(x=>x.turma===t&&x.num===n))toast('Nota '+fmt(calc.total)+' confirmada no Google Sheets.');
 }
 async function resetStudent(){
@@ -231,7 +236,7 @@ async function resetStudent(){
   const after=await getSheet();
   const row=(after.turmas[t]||[]).find(r=>Number(r['Nº'])===n);
   if(!row||row.Status!=='Pendente')throw Error('A planilha não confirmou o status Pendente. O reset local foi cancelado.');
-  delete db[t][n];queue=queue.filter(x=>!(x.turma===t&&x.num===n));persist();
+  delete db[t][n];queue=queue.filter(x=>!(x.turma===t&&x.num===n));persist();discardDraft(t,n);
   localStorage.removeItem(IMPORT_KEY);marks=ZERO();dirty=false;renderQuestions();studentStatusOnly();renderGrades();renderStats();refreshStatus();
   $('resetMsg').textContent='Nota excluída no aplicativo e no Google Sheets. Aluno Pendente.';
  }catch(e){$('resetMsg').textContent='Não foi possível resetar: '+String(e.message||e)+'. A nota local não foi excluída.'}
@@ -291,7 +296,7 @@ function importOmr(){
  localStorage.removeItem(IMPORT_KEY);
  try{const rec=JSON.parse(raw),t=rec.turma,n=Number(rec.num),st=ROSTERS[t]?.find(s=>s.num===n);
   if(!st||st.type!==rec.tipo||!Array.isArray(rec.marks)||rec.marks.length!==10||rec.marks.some(x=>!Number.isInteger(x)||x<0||x>15)){toast('Respostas do cartão inválidas.');return}
-  $('group').value=t;groupChange(n);marks=rec.marks.slice();dirty=true;renderQuestions();toast('Respostas importadas. Confira os quadradinhos e toque em Salvar nota.');
+  $('group').value=t;groupChange(n);marks=rec.marks.slice();dirty=true;saveDraft();renderQuestions();toast('Respostas importadas. Confira os quadradinhos e toque em Salvar nota.');
  }catch(e){toast('Não foi possível importar a leitura do cartão.')}
 }
 function exportCsv(){
