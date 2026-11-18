@@ -1,176 +1,278 @@
 <!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Leitor de respostas — PSS1</title>
+<meta name="theme-color" content="#173b75">
+<title>Scanner ao vivo · PSS1</title>
 <style>
-body{font:16px system-ui,sans-serif;background:#f1f5f9;color:#17233c;max-width:940px;margin:auto;padding:12px}
-section{background:white;border:1px solid #ddd;border-radius:12px;padding:15px;margin:10px 0}
-h2{margin:0 0 8px}
-button,input{font:inherit;border-radius:8px;padding:10px}
-button{background:#1e3a8a;color:#fff;border:0;margin:4px}
-button:disabled{background:#64748b}
-canvas{width:100%;height:auto;border:1px solid #ccc}
-table{border-collapse:collapse;width:100%}
-td,th{border-bottom:1px solid #ddd;padding:5px;text-align:left}
-input[type=number]{width:75px}
-small{color:#64748b}
-.warn{color:#b45309}.ok{color:#166534}
+*{box-sizing:border-box}body{font:15px system-ui,-apple-system,sans-serif;background:#edf2f8;color:#12253e;max-width:980px;margin:auto;padding:12px}h1{font-size:21px;margin:2px 0 10px}.panel{background:white;border:1px solid #d9e1ec;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #12253e08}
+button,input{font:inherit;border-radius:8px;padding:11px}button{background:#173b75;color:white;border:0;margin:3px;cursor:pointer}button:disabled{background:#94a3b8;cursor:default}button.alt{background:#e6edf7;color:#1e3a62}button.good{background:#16724a}button.warning{background:#a65309}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions>*{flex:1 1 150px}.frame{position:relative;background:#081423;border-radius:10px;overflow:hidden;line-height:0;touch-action:none}.frame canvas{width:100%;height:auto;display:block;touch-action:none}.state{font-size:13px;color:#52657b;line-height:1.5}.warn{color:#a4530b}.ok{color:#116c45}.status{font-weight:600}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.item{background:#f4f7fb;padding:8px;border:1px solid #dce5ef;border-radius:10px;text-align:center}.item strong{display:block;font-size:12px}.item input{width:100%;min-width:0;text-align:center;border:1px solid #9badc2;margin-top:4px;font-size:18px;font-variant-numeric:tabular-nums}.item.unread{background:#fff5e9;border-color:#eecb9b}.item.verified{background:#eaf7ef;border-color:#b0dabe}.note{font-size:12px;color:#52657b}.legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}.dot{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:3px;background:#1b9c58}.dot.amber{background:#db8b12}.dot.red{background:#d84343}.hidden{display:none!important}@media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.panel{padding:10px}.actions>*{flex-basis:115px}button{padding:11px 6px}}
 </style>
-<script async src="https://docs.opencv.org/4.13.0/opencv.js" onerror="document.getElementById('status').textContent='Biblioteca OpenCV indisponível. A correção manual continua disponível.'"></script>
+<script async src="https://docs.opencv.org/4.13.0/opencv.js"></script>
 </head><body>
-<section>
-<h2>Leitor do cartão PSS</h2>
-<p id="student"></p>
-<p>Fotografe o cartão inteiro e toque em <strong>Reconhecer respostas</strong>. O aplicativo procura os dez retângulos reais. Se a foto não puder ser interpretada, os dez campos continuam disponíveis para preenchimento manual.</p>
-<input type="file" id="photo" accept="image/*" capture="environment">
-<div><button id="recognize">Reconhecer respostas</button><button id="manual">Digitar somatórias</button></div>
-<p id="status">Preparando leitor OpenCV…</p>
-</section>
-<section><canvas id="preview"></canvas></section>
-<section>
-<div id="answerArea"></div>
-<button id="submit" disabled>Enviar respostas conferidas ao corretor</button>
-<button id="back">Voltar</button>
-<p><small>Nenhuma nota será salva automaticamente. Confira o aluno e cada soma antes de enviar.</small></p>
-</section>
+<div class="panel"><h1>Scanner ao vivo · Cartão PSS</h1>
+<div class="status" id="student"></div>
+<p class="state">Enquadre as <b>10 colunas do cartão</b>. A câmera destaca em <b>verde</b> os quadradinhos de dezena e unidade identificados. Toque em <b>Congelar e revisar</b> para ajustar qualquer leitura antes de enviá-la.</p>
+<div class="actions">
+<button id="start">📷 Abrir câmera</button>
+<button id="freeze" class="good" disabled>❄ Congelar e revisar</button>
+<button id="resume" class="alt" disabled>▶ Retomar câmera</button>
+<label style="flex:1 1 150px;align-self:center">Ou usar imagem <input id="photo" type="file" accept="image/*" capture="environment" style="width:100%;font-size:12px"></label>
+</div><p id="status" class="state" aria-live="polite">Preparando scanner…</p></div>
+<div class="panel">
+<div class="frame"><canvas id="preview" width="800" height="600"></canvas></div>
+<div class="legend state"><span><i class="dot"></i> leitura consistente</span><span><i class="dot amber"></i> revisar</span><span><i class="dot red"></i> não identificada</span></div>
+<p class="note" id="touchHelp">Depois de congelar: toque no quadradinho da imagem para corrigir sua marcação, ou altere a soma na tabela.</p>
+</div>
+<div class="panel">
+<div class="actions"><button id="manual" class="alt">✏ Informar respostas manualmente</button><button id="retry" class="alt">↻ Reanalisar imagem</button></div>
+<div class="grid" id="answers"></div>
+<p class="state">As respostas incertas ficam vazias. Respostas de 00 a 15; em caso de leitura errada, toque na soma e corrija. O aplicativo não salva nota nesta tela.</p>
+<div class="actions"><button class="good" id="send" disabled>✓ Enviar respostas conferidas</button><button class="alt" id="back">Voltar ao corretor</button></div>
+</div>
 <script>
-const query=new URLSearchParams(location.search),turma=query.get('turma')||'',num=Number(query.get('num')),tipo=query.get('tipo')||'';
-document.getElementById('student').textContent='Turma '+turma+' | chamada '+String(num).padStart(2,'0')+' | tipo '+tipo;
-const canvas=document.getElementById('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true}),input=document.getElementById('photo'),status=document.getElementById('status'),area=document.getElementById('answerArea'),submit=document.getElementById('submit');
-let picture=null,cvReady=null,latestResults=null;
-async function getCv(){
- if(cvReady)return cvReady;
- for(let i=0;i<60;i++){
-  if(window.cv){
-   let lib=await window.cv;
-   if(lib&&typeof lib.imread==='function'){cvReady=lib;return lib;}
+"use strict";
+const qs=new URLSearchParams(location.search),turma=qs.get('turma')||'',num=Number(qs.get('num')),tipo=qs.get('tipo')||'';
+const student=document.getElementById('student'),canvas=document.getElementById('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true}),statusEl=document.getElementById('status'),answerEl=document.getElementById('answers'),send=document.getElementById('send');
+student.textContent='Turma '+turma+' · Chamada '+String(num).padStart(2,'0')+' · Tipo '+tipo;
+const st={stream:null,video:null,timer:null,busy:false,cv:null,source:null,sourceType:'none',frozen:false,last:null,stable:[],frameCount:0,values:Array(10).fill(null),manualEdit:false};
+function status(text){statusEl.textContent=text}
+function clearTimer(){if(st.timer!==null){clearTimeout(st.timer);st.timer=null}}
+function stopCamera(){clearTimer();if(st.stream){st.stream.getTracks().forEach(t=>t.stop());st.stream=null}if(st.video){st.video.pause();st.video.srcObject=null;st.video=null}document.getElementById('freeze').disabled=true;}
+async function loadCv(){
+ if(st.cv)return st.cv;
+ for(let i=0;i<50;i++){
+  const x=window.cv?await window.cv:null;
+  if(x&&typeof x.imread==='function'){st.cv=x;return x}
+  await new Promise(r=>setTimeout(r,180));
+ }
+ throw Error('OpenCV não carregou. A correção manual continua disponível.');
+}
+function drawSource(source){
+ if(!source)return;
+ const nativeW=source.videoWidth||source.naturalWidth||source.width,nativeH=source.videoHeight||source.naturalHeight||source.height;
+ if(!nativeW||!nativeH)return;
+ const scale=Math.min(1,1100/nativeW);
+ const w=Math.round(nativeW*scale),h=Math.round(nativeH*scale);
+ if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+ ctx.drawImage(source,0,0,w,h);
+}
+function overlay(result){
+ if(!result||!result.boxes||!result.boxes.length)return;
+ const boxes=result.boxes;
+ ctx.lineWidth=Math.max(2,canvas.width/550);
+ for(let q=0;q<boxes.length;q++){
+  const b=boxes[q],read=result.results[q],color=read&&read.valid?'#19b36b':'#e0a333';
+  ctx.strokeStyle=color;ctx.strokeRect(b.x,b.y,b.w,b.h);
+  if(!read)continue;
+  for(let k=0;k<2;k++){
+   const r=read.columns[k];if(!r||r.digit===null)continue;
+   const x=b.x+b.w*(k===0?.329:.673),y=b.y+b.h*(.149+.0855*r.digit);
+   ctx.strokeStyle=read.valid?'#07ce62':'#f59e0b';
+   const rx=Math.max(3,b.w*.075),ry=Math.max(3,b.h*.022);
+   ctx.strokeRect(x-rx,y-ry,rx*2,ry*2);
   }
-  await new Promise(resolve=>setTimeout(resolve,250));
  }
- throw Error('OpenCV não carregou. É possível digitar as somatórias manualmente.');
 }
-function showImage(){
- if(picture)ctx.drawImage(picture,0,0,canvas.width,canvas.height);
-}
-input.onchange=()=>{
- const file=input.files[0];if(!file)return;
- const url=URL.createObjectURL(file),image=new Image();
- image.onload=()=>{
-  const scale=Math.min(1,1400/image.width);
-  canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);
-  picture=image;latestResults=null;showImage();submit.disabled=true;area.innerHTML='';
-  status.textContent='Imagem carregada. Toque em Reconhecer respostas.';
-  URL.revokeObjectURL(url);
- };
- image.onerror=()=>{URL.revokeObjectURL(url);status.textContent='Não foi possível carregar a imagem.'};
- image.src=url;
-};
-function manualFields(values,flag){
- const arr=values||Array(10).fill('');
- latestResults=arr;
- let html='<table><thead><tr><th>Questão</th><th>Somatória (00–15)</th><th>Leitura</th></tr></thead><tbody>';
- arr.forEach((value,i)=>{
-  const v=value==null?'':String(value).padStart(2,'0');
-  const text=flag&&flag[i]?'Revisar':'Conferir';
-  html+='<tr><td>Q'+String(i+1).padStart(2,'0')+'</td><td><input type="number" min="0" max="15" step="1" data-q="'+i+'" value="'+v+'"></td><td>'+text+'</td></tr>';
- });
- html+='</tbody></table>';
- area.innerHTML=html;
- submit.disabled=false;
-}
-document.getElementById('manual').onclick=()=>{
- showImage();
- manualFields(Array(10).fill(''),Array(10).fill(true));
- status.textContent='Digite uma soma de 00 a 15 em cada questão. Use o QR Code já lido para identificar o aluno.';
-};
-function grouped(items,width){
- const out=[];
- items.sort((a,b)=>a.x-b.x);
- for(const item of items){
-  const center=item.x+item.w/2;
-  if(out.length&&Math.abs((out[out.length-1][0].x+out[out.length-1][0].w/2)-center)<width*.023)out[out.length-1].push(item);
-  else out.push([item]);
- }
- return out.map(g=>g.sort((a,b)=>b.w*b.h-a.w*a.h)[0]);
-}
-function readDigits(lib){
+function readImage(lib){
  const src=lib.imread(canvas),gray=new lib.Mat(),bw=new lib.Mat(),contours=new lib.MatVector(),hierarchy=new lib.Mat();
  try{
   lib.cvtColor(src,gray,lib.COLOR_RGBA2GRAY);
   lib.threshold(gray,bw,0,255,lib.THRESH_BINARY_INV|lib.THRESH_OTSU);
   lib.findContours(bw,contours,hierarchy,lib.RETR_LIST,lib.CHAIN_APPROX_SIMPLE);
-  const h=bw.rows,w=bw.cols,candidates=[];
+  const w=bw.cols,h=bw.rows,candidates=[];
   for(let i=0;i<contours.size();i++){
-   const cnt=contours.get(i);
+   const contour=contours.get(i);
    try{
-    const rect=lib.boundingRect(cnt),ratio=rect.height/rect.width;
-    if(rect.width>.025*w&&rect.width<.14*w&&rect.height>.10*h&&rect.height<.73*h&&
-       ratio>1.85&&rect.y>.10*h)candidates.push({x:rect.x,y:rect.y,w:rect.width,h:rect.height});
-   }finally{cnt.delete()}
+    const b=lib.boundingRect(contour),ratio=b.height/b.width;
+    if(b.width>.023*w&&b.width<.16*w&&b.height>.11*h&&b.height<.77*h&&ratio>1.8&&b.y>.07*h)
+      candidates.push({x:b.x,y:b.y,w:b.width,h:b.height,area:b.width*b.height});
+   }finally{contour.delete()}
   }
-  const blocks=grouped(candidates,w);
-  if(blocks.length!==10)throw Error('Reconheci '+blocks.length+' colunas, não dez. Você pode informar manualmente sem perder a identificação do QR Code.');
-  const widths=blocks.map(b=>b.w).sort((a,b)=>a-b),heights=blocks.map(b=>b.h).sort((a,b)=>a-b);
-  const mw=widths[5],mh=heights[5];
-  if(blocks.some(b=>Math.abs(b.w-mw)>.25*mw||Math.abs(b.h-mh)>.20*mh))throw Error('Perspectiva muito acentuada para leitura segura. Use os campos manuais ou uma foto de frente.');
-  const raw=bw.data;
-  const pixelDensity=(cx,cy,rx,ry)=>{
-   let count=0,total=0;
-   for(let y=Math.max(0,Math.round(cy-ry));y<=Math.min(h-1,Math.round(cy+ry));y++)
-    for(let x=Math.max(0,Math.round(cx-rx));x<=Math.min(w-1,Math.round(cx+rx));x++){
-     count+=raw[y*w+x]?1:0;total++;
-    }
-   return total?count/total:0;
-  };
-  const values=[],uncertain=[];
-  for(let q=0;q<10;q++){
-   const b=blocks[q],digits=[],confidence=[];
-   for(const [frac,n] of [[.329,2],[.673,10]]){
-    const scores=[];
-    for(let d=0;d<n;d++)
-     scores.push(pixelDensity(b.x+b.w*frac,b.y+b.h*(.149+.0855*d),Math.max(2,b.w*.055),Math.max(2,b.h*.016)));
-    const ordered=scores.map((s,d)=>({s,d})).sort((a,b)=>b.s-a.s);
-    digits.push(ordered[0].d);
-    confidence.push(ordered[0].s>=.60&&ordered[0].s-ordered[1].s>=.27);
+  // Reduzir contornos duplicados e escolher o conjunto de dez retângulos
+  // alinhados com altura semelhante, sem usar posições fixas da tela.
+  const ordered=candidates.sort((a,b)=>b.area-a.area);
+  const distinct=[];
+  for(const b of ordered){
+   const cx=b.x+b.w/2,cy=b.y+b.h/2;
+   if(distinct.some(z=>Math.abs(z.x+z.w/2-cx)<Math.min(z.w,b.w)*.30&&Math.abs(z.y+z.h/2-cy)<Math.min(z.h,b.h)*.30))continue;
+   distinct.push(b);
+  }
+  let boxes=[];
+  for(const anchor of distinct){
+   const set=distinct.filter(b=>Math.abs(b.y-anchor.y)<anchor.h*.12&&Math.abs(b.h-anchor.h)<anchor.h*.22&&Math.abs(b.w-anchor.w)<anchor.w*.30);
+   if(set.length<10)continue;
+   set.sort((a,b)=>a.x-b.x);
+   for(let off=0;off<=set.length-10;off++){
+    const seq=set.slice(off,off+10),deltas=seq.slice(1).map((b,i)=>b.x-seq[i].x);
+    const avg=deltas.reduce((a,b)=>a+b,0)/9;
+    if(avg<=0||deltas.some(d=>Math.abs(d-avg)>avg*.30))continue;
+    if(!boxes.length||seq.reduce((s,b)=>s+b.area,0)>boxes.reduce((s,b)=>s+b.area,0))boxes=seq;
    }
-   const value=digits[0]*10+digits[1];
-   const ok=value<=15&&confidence.every(Boolean);
-   values.push(ok?value:null);
-   uncertain.push(!ok);
   }
-  showImage();
-  ctx.lineWidth=Math.max(2,w/600);
-  blocks.forEach(b=>{ctx.strokeStyle='#15803d';ctx.strokeRect(b.x,b.y,b.w,b.h)});
-  return {values,uncertain};
- }finally{
-  src.delete();gray.delete();bw.delete();contours.delete();hierarchy.delete();
- }
+  if(boxes.length!==10)return {error:'Não foi possível localizar com confiança as dez colunas.',boxes:[],results:[]};
+  boxes.sort((a,b)=>a.x-b.x);
+  const data=bw.data;
+  function density(x,y,rx,ry){
+   let p=0,n=0;
+   for(let yy=Math.max(0,Math.round(y-ry));yy<=Math.min(h-1,Math.round(y+ry));yy++)
+    for(let xx=Math.max(0,Math.round(x-rx));xx<=Math.min(w-1,Math.round(x+rx));xx++){
+     p+=data[yy*w+xx]>0?1:0;n++;
+    }
+   return n?p/n:0;
+  }
+  const results=[];
+  for(let q=0;q<10;q++){
+   const b=boxes[q],columns=[];
+   for(const [ratio,count] of [[.329,2],[.673,10]]){
+    const scores=[];
+    for(let d=0;d<count;d++){
+     const v=density(b.x+b.w*ratio,b.y+b.h*(.149+.0855*d),Math.max(2,b.w*.055),Math.max(2,b.h*.016));
+     scores.push({digit:d,value:v});
+    }
+    scores.sort((a,b)=>b.value-a.value);
+    const best=scores[0],second=scores[1];
+    const confident=best.value>=.64&&(best.value-second.value)>=.32;
+    columns.push({digit:confident?best.digit:null,candidate:best.digit,confidence:best.value-second.value});
+   }
+   const value=columns.every(c=>c.digit!==null)?10*columns[0].digit+columns[1].digit:null;
+   results.push({columns,value,valid:value!==null&&value<=15});
+  }
+  return {boxes,results};
+ }finally{src.delete();gray.delete();bw.delete();contours.delete();hierarchy.delete()}
 }
-document.getElementById('recognize').onclick=async()=>{
- if(!picture){status.textContent='Selecione primeiro uma fotografia do cartão.';return;}
- status.textContent='Analisando quadradinhos reais…';
+function updateTable(values,detected,retainManual){
+ st.values=values.slice();
+ answerEl.innerHTML='';
+ for(let i=0;i<10;i++){
+  const cell=document.createElement('div');cell.className='item '+(detected&&detected[i]?'verified':'unread');
+  const label=document.createElement('strong');label.textContent='Q'+String(i+1).padStart(2,'0');
+  const input=document.createElement('input');input.type='number';input.inputMode='numeric';input.min='0';input.max='15';input.step='1';input.dataset.question=i;input.placeholder='--';
+  input.value=values[i]===null||values[i]===undefined?'':String(values[i]).padStart(2,'0');
+  input.addEventListener('input',()=>{
+   const raw=input.value.trim(),value=raw===''?null:Number(raw);
+   st.values[i]=value!==null&&Number.isInteger(value)&&value>=0&&value<=15?value:null;
+   cell.className='item '+(st.values[i]!==null?'verified':'unread');
+   st.manualEdit=true;toggleSend();
+   if(st.frozen&&st.last){drawSource(st.source);overlay(adjustedResult())}
+  });
+  cell.append(label,input);answerEl.appendChild(cell);
+ }
+ toggleSend();
+}
+function toggleSend(){send.disabled=st.values.some(v=>!Number.isInteger(v)||v<0||v>15)||!(turma==='1A'||turma==='1B')||!Number.isInteger(num)||num<1||!['A','B','C'].includes(tipo)}
+function adjustedResult(){
+ if(!st.last)return null;
+ const r=st.last;
+ return {boxes:r.boxes,results:r.results.map((z,i)=>{
+  const v=st.values[i];if(v===null)return {columns:[],valid:false};
+  return {columns:[{digit:Math.floor(v/10)},{digit:v%10}],valid:true};
+ })};
+}
+async function analyzeFrame(source,live){
+ if(st.busy)return;
+ st.busy=true;
  try{
-  const cv=await getCv(),res=readDigits(cv);
-  manualFields(res.values,res.uncertain);
-  status.textContent='Leitura concluída. Confira todos os valores. Respostas incertas ficaram vazias.';
- }catch(err){
-  showImage();manualFields(Array(10).fill(''),Array(10).fill(true));
-  status.textContent=String(err.message||err)+' Digite as dez somatórias para concluir a correção manual.';
- }
+  drawSource(source);
+  const lib=await loadCv();
+  const found=readImage(lib);
+  st.last=found.boxes.length?found:null;
+  if(found.error){if(!live)status(found.error+' Você pode digitar as respostas na tabela.');return}
+  if(live){
+   const key=found.results.map(q=>q.valid?String(q.value).padStart(2,'0'):'??').join('|');
+   st.stable.push(key);if(st.stable.length>4)st.stable.shift();
+   const stable=st.stable.length>=3&&st.stable.every(k=>k===key)&&found.results.every(r=>r.valid);
+   status(stable?'10 marcações estáveis. Toque em Congelar e revisar.':'Ajuste o enquadramento até que os quadradinhos fiquem verdes.');
+  }else{
+   const values=found.results.map(r=>r.valid?r.value:null);
+   updateTable(values,found.results.map(r=>r.valid),false);
+   status('Imagem congelada. Toque diretamente num quadradinho ou edite a soma na tabela.');
+  }
+  overlay(found);
+ }catch(err){status('Leitor indisponível: '+String(err.message||err)+'. Você pode usar a correção por toque.')}
+ finally{st.busy=false}
+}
+function liveLoop(){
+ if(!st.stream||st.frozen)return;
+ if(st.video&&st.video.readyState>=2)analyzeFrame(st.video,true).finally(()=>{
+  if(st.stream&&!st.frozen)st.timer=setTimeout(liveLoop,650);
+ });
+ else st.timer=setTimeout(liveLoop,400);
+}
+document.getElementById('start').onclick=async()=>{
+ stopCamera();st.frozen=false;st.source=null;st.stable=[];
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+  const video=document.createElement('video');video.srcObject=stream;video.playsInline=true;video.muted=true;
+  await video.play();st.stream=stream;st.video=video;st.source=video;st.sourceType='video';
+  document.getElementById('freeze').disabled=false;document.getElementById('resume').disabled=true;
+  status('Câmera aberta. Aponte para as dez colunas de respostas.');
+  liveLoop();
+ }catch(err){stopCamera();status('Não foi possível abrir a câmera: '+String(err.message||err)+'. Use a imagem ou a correção manual.')}
 };
-submit.onclick=()=>{
- const fields=[...area.querySelectorAll('input[data-q]')];
- if(fields.length!==10){status.textContent='É necessário informar as dez somatórias.';return;}
- const values=fields.map(f=>f.value.trim()===''?NaN:Number(f.value));
- if(values.some(v=>!Number.isInteger(v)||v<0||v>15)){status.textContent='Preencha todas as questões com valores de 00 a 15.';return;}
- if(!turma||!['1A','1B'].includes(turma)||!Number.isInteger(num)||!['A','B','C'].includes(tipo)){
-  status.textContent='Aluno inválido. Volte e selecione ou leia o QR Code.';return;
- }
- if(!confirm('Confirma as dez somatórias para o estudante nº '+num+' da turma '+turma+'?'))return;
- localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks:values,source:'scanner',timestamp:Date.now()}));
- location.href='index.html?omr=1';
+document.getElementById('freeze').onclick=async()=>{
+ if(!st.source)return;
+ st.frozen=true;clearTimer();drawSource(st.source);
+ const screenshot=new Image();screenshot.src=canvas.toDataURL('image/png');
+ await new Promise(resolve=>{screenshot.onload=resolve;screenshot.onerror=resolve});
+ st.source=screenshot;st.sourceType='image';
+ stopCamera();
+ document.getElementById('resume').disabled=false;
+ await analyzeFrame(st.source,false);
 };
-document.getElementById('back').onclick=()=>location.href='index.html';
-getCv().then(()=>{status.textContent='Leitor OpenCV pronto. Carregue a foto.';})
-.catch(()=>{status.textContent='Reconhecimento automático indisponível; a digitação manual funciona.';});
+document.getElementById('resume').onclick=()=>{document.getElementById('start').click()};
+document.getElementById('photo').onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ stopCamera();st.frozen=true;st.stable=[];
+ const url=URL.createObjectURL(f),i=new Image();
+ try{
+  await new Promise((resolve,reject)=>{i.onload=resolve;i.onerror=reject;i.src=url});
+  st.source=i;st.sourceType='image';st.last=null;
+  document.getElementById('resume').disabled=true;
+  await analyzeFrame(i,false);
+ }catch(err){status('Falha ao abrir imagem: '+String(err.message||err))}
+ finally{URL.revokeObjectURL(url)}
+};
+document.getElementById('manual').onclick=()=>{
+ st.frozen=true;stopCamera();st.last=null;st.source=null;
+ updateTable(Array(10).fill(null),Array(10).fill(false),true);
+ status('Digite 10 respostas de 00 a 15. Nenhuma nota é salva sem confirmação.');
+};
+document.getElementById('retry').onclick=async()=>{
+ if(!st.source){status('Abra a câmera ou selecione uma imagem.');return}
+ await analyzeFrame(st.source,false);
+};
+canvas.addEventListener('pointerdown',e=>{
+ if(!st.frozen||!st.last||!st.last.boxes||st.last.boxes.length!==10)return;
+ const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)*canvas.width/rect.width,y=(e.clientY-rect.top)*canvas.height/rect.height;
+ for(let q=0;q<10;q++){
+  const b=st.last.boxes[q];
+  if(x<b.x||x>b.x+b.w||y<b.y||y>b.y+b.h)continue;
+  const fracX=(x-b.x)/b.w,fracY=(y-b.y)/b.h;
+  const digit=Math.round((fracY-.149)/.0855);
+  if(digit<0||digit>9)return;
+  const tens=fracX<.50;
+  if(tens&&digit>1)return;
+  const prev=st.values[q]===null?0:st.values[q];
+  const value=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
+  if(value>15){status('Essa combinação ultrapassa 15. Corrija dezena ou unidade.');return}
+  st.values[q]=value;st.manualEdit=true;
+  const inp=answerEl.querySelector('input[data-question="'+q+'"]');
+  if(inp){inp.value=String(value).padStart(2,'0');inp.parentElement.className='item verified'}
+  toggleSend();drawSource(st.source);overlay(adjustedResult());
+  status('Q'+String(q+1).padStart(2,'0')+' ajustada para '+String(value).padStart(2,'0')+' pelo toque.');
+  return;
+ }
+});
+send.onclick=()=>{
+ const fields=[...answerEl.querySelectorAll('input[data-question]')];
+ if(fields.length!==10){status('Preencha as dez questões antes de enviar.');return}
+ const marks=fields.map(f=>f.value.trim()===''?NaN:Number(f.value));
+ if(marks.some(n=>!Number.isInteger(n)||n<0||n>15)){status('Confira todas as somatórias: somente valores de 00 a 15.');return}
+ if(!confirm('Confirma as dez respostas para a chamada '+num+' da turma '+turma+'? A nota será calculada no corretor.'))return;
+ localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,source:'scanner-live',timestamp:Date.now()}));
+ stopCamera();location.href='index.html?omr=1';
+};
+document.getElementById('back').onclick=()=>{stopCamera();location.href='index.html'};
+window.addEventListener('pagehide',stopCamera);
+getCv().then(()=>status('Leitor preparado. Toque em Abrir câmera.')).catch(e=>status(String(e.message||e)+' Use a digitação manual enquanto isso.'));
 </script></body></html>
