@@ -1,87 +1,92 @@
 <!doctype html>
-<html lang="pt-BR"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#173b75">
-<title>Leitor de cartão · PSS1</title>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173b75"><title>Leitor de cartão PSS</title>
 <style>
-*{box-sizing:border-box}body{font:15px system-ui,-apple-system,sans-serif;background:#edf2f8;color:#12253e;max-width:980px;margin:auto;padding:12px}h1{font-size:21px;margin:2px 0 10px}.panel{background:white;border:1px solid #d9e1ec;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #12253e08}
-button,input{font:inherit;border-radius:8px;padding:11px}button{background:#173b75;color:white;border:0;margin:3px;cursor:pointer}button:disabled{background:#94a3b8;cursor:default}button.alt{background:#e6edf7;color:#1e3a62}button.good{background:#16724a}button.warning{background:#a65309}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions>*{flex:1 1 150px}.frame{position:relative;background:#081423;border-radius:10px;overflow:hidden;line-height:0;touch-action:none}.frame canvas{width:100%;height:auto;display:block;touch-action:none}.state{font-size:13px;color:#52657b;line-height:1.5}.warn{color:#a4530b}.ok{color:#116c45}.status{font-weight:600}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.item{background:#f4f7fb;padding:8px;border:1px solid #dce5ef;border-radius:10px;text-align:center}.item strong{display:block;font-size:12px}.item input{width:100%;min-width:0;text-align:center;border:1px solid #9badc2;margin-top:4px;font-size:18px;font-variant-numeric:tabular-nums}.item.unread{background:#fff5e9;border-color:#eecb9b}.item.verified{background:#eaf7ef;border-color:#b0dabe}.note{font-size:12px;color:#52657b}.legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}.dot{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:3px;background:#1b9c58}.dot.amber{background:#db8b12}.dot.red{background:#d84343}.hidden{display:none!important}@media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.panel{padding:10px}.actions>*{flex-basis:115px}button{padding:11px 6px}}
-</style>
-<script async src="https://docs.opencv.org/4.13.0/opencv.js"></script>
-</head><body>
-<div class="panel"><h1>Leitor de cartão PSS</h1>
-<div class="status" id="student"></div>
-<p class="state">Abra a câmera e enquadre as dez colunas. Toque em <b>Congelar imagem</b> para conferir ou corrigir as somatórias.</p>
-<div class="actions">
-<button id="start">📷 Abrir câmera</button>
-<button id="freeze" class="good" disabled>Congelar imagem</button>
-
-<label style="flex:1 1 150px;align-self:center">Selecionar imagem <input id="photo" type="file" accept="image/*" style="width:100%;font-size:12px"></label>
-</div><p id="status" class="state" aria-live="polite">Pronto para abrir a câmera.</p></div>
-<div class="panel">
-<div class="frame"><canvas id="preview" width="800" height="600"></canvas></div>
-<div class="legend state"><span><i class="dot"></i> leitura consistente</span><span><i class="dot amber"></i> revisar</span><span><i class="dot red"></i> não identificada</span></div>
-<p class="note" id="touchHelp">Depois de congelar: toque no quadradinho da imagem para corrigir sua marcação, ou altere a soma na tabela.</p>
-</div>
-<div class="panel">
-
+*{box-sizing:border-box}body{font:15px system-ui,-apple-system,Arial,sans-serif;background:#edf2f8;color:#10243e;max-width:900px;margin:auto;padding:12px}section{background:white;border:1px solid #d9e1ec;border-radius:12px;padding:12px;margin-bottom:12px}h1{font-size:20px;margin:2px 0 8px}p{line-height:1.4}button,input{font:inherit;border-radius:8px;padding:10px}button{border:0;background:#1e4085;color:white;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e7effa;color:#234061}button.good{background:#16724a}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.controls>*{flex:1 1 125px}.file{display:block;border:1px solid #b6c4d5;border-radius:9px;padding:8px;font-size:13px}.file input{width:100%;font-size:13px}.viewport{position:relative;background:#0b1422;min-height:220px;border-radius:10px;overflow:hidden}.viewport video,.viewport canvas{width:100%;height:auto;display:block}.viewport video{display:none}.viewport canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}.viewport canvas#snapshot{display:none;touch-action:manipulation}.viewport.mode-live video,.viewport.mode-live canvas#overlay{display:block}.viewport.mode-photo canvas#snapshot{display:block}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.answer{background:#f4f7fb;border:1px solid #d1dcec;border-radius:8px;padding:7px}.answer label{display:block;text-align:center;font-weight:700}.answer input{width:100%;min-width:0;text-align:center;font-size:18px;margin-top:5px}.answer.missing{background:#fff3e4}.message{font-size:13px;color:#42556f;min-height:22px}small{color:#586f8b}@media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.controls>*{flex-basis:120px}}
+</style></head>
+<body>
+<section><h1>Leitor de cartão PSS</h1><div id="student"></div>
+<p>Depois de ler o QR Code, a câmera abre automaticamente. Enquadre as dez colunas, congele a imagem e confira as respostas. Você também pode escolher uma imagem já salva.</p>
+<div class="controls"><button type="button" id="open">Abrir câmera</button><button type="button" id="freeze" disabled>Congelar imagem</button><label class="file">Escolher imagem<input type="file" id="file" accept="image/*"></label></div>
+<div id="status" class="message" role="status">Preparando a câmera…</div></section>
+<section><div class="viewport" id="viewport"><video id="video" autoplay muted playsinline webkit-playsinline></video><canvas id="overlay"></canvas><canvas id="snapshot" width="800" height="600"></canvas></div>
+<small>Verde: marcações reconhecidas. Se necessário, toque nos quadradinhos da imagem congelada ou digite a soma abaixo.</small></section>
+<section><div class="controls"><button type="button" id="analyze" class="secondary">Ler marcações da imagem</button></div>
 <div class="grid" id="answers"></div>
-<p class="state">As respostas incertas ficam vazias. Respostas de 00 a 15; em caso de leitura errada, toque na soma e corrija. As respostas só serão enviadas após sua confirmação.</p>
-<div class="actions"><button class="good" id="send" disabled>✓ Enviar respostas conferidas</button><button class="alt" id="back">Voltar ao corretor</button></div>
-</div>
+<p class="message">Dez somatórias entre 00 e 15. Cada uma pode ser corrigida manualmente antes do envio.</p>
+<div class="controls"><button type="button" id="send" class="good" disabled>Enviar respostas conferidas</button><button type="button" id="back" class="secondary">Voltar</button></div></section>
 <script>
 "use strict";
-const qs=new URLSearchParams(location.search),turma=qs.get('turma')||'',num=Number(qs.get('num')),tipo=qs.get('tipo')||'';
-const student=document.getElementById('student'),canvas=document.getElementById('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true}),statusEl=document.getElementById('status'),answerEl=document.getElementById('answers'),send=document.getElementById('send');
-student.textContent='Turma '+turma+' · Chamada '+String(num).padStart(2,'0')+' · Tipo '+tipo;
-const st={stream:null,video:null,timer:null,busy:false,cv:null,source:null,sourceType:'none',frozen:false,last:null,stable:[],frameCount:0,values:Array(10).fill(null),manualEdit:false};
-function status(text){statusEl.textContent=text}
-function clearTimer(){if(st.timer!==null){clearTimeout(st.timer);st.timer=null}}
-let previewFrame=null;
-function stopCamera(){
- clearTimer();
- if(previewFrame!==null){cancelAnimationFrame(previewFrame);previewFrame=null;}
- if(st.stream){st.stream.getTracks().forEach(t=>t.stop());st.stream=null}
- if(st.video){st.video.pause();st.video.srcObject=null;st.video=null}
- document.getElementById('freeze').disabled=true;
+const params=new URLSearchParams(location.search),turma=params.get('turma')||'',num=Number(params.get('num')),tipo=params.get('tipo')||'';
+const $=id=>document.getElementById(id);
+const video=$('video'),snapshot=$('snapshot'),ctx=snapshot.getContext('2d',{willReadFrequently:true}),overlay=$('overlay'),overlayCtx=overlay.getContext('2d'),viewport=$('viewport');
+const state={stream:null,loading:false,cv:null,cvPromise:null,frame:null,analysisCanvas:document.createElement('canvas'),frozen:false,source:null,result:null,marks:Array(10).fill(null),recognizing:false};
+$('student').textContent='Turma '+turma+' · Nº '+String(num).padStart(2,'0')+' · Tipo '+tipo;
+function message(t){$('status').textContent=t}
+function updateSend(){$('send').disabled=state.marks.some(x=>!Number.isInteger(x)||x<0||x>15)||!['1A','1B'].includes(turma)||!['A','B','C'].includes(tipo)||!Number.isInteger(num)||num<1}
+function renderInputs(){
+ const root=$('answers');root.replaceChildren();
+ for(let q=0;q<10;q++){
+  const box=document.createElement('div');box.className='answer missing';
+  const label=document.createElement('label');label.htmlFor='q'+q;label.textContent='Q'+String(q+1).padStart(2,'0');
+  const input=document.createElement('input');input.id='q'+q;input.type='number';input.inputMode='numeric';input.min='0';input.max='15';input.step='1';input.placeholder='00–15';input.value=state.marks[q]===null?'':String(state.marks[q]).padStart(2,'0');
+  input.oninput=()=>{const txt=input.value.trim(),v=txt===''?null:Number(txt);state.marks[q]=v!==null&&Number.isInteger(v)&&v>=0&&v<=15?v:null;box.className=state.marks[q]===null?'answer missing':'answer';updateSend();if(state.frozen&&state.result)drawBoxes(state.result,true)};
+  box.className=state.marks[q]===null?'answer missing':'answer';box.append(label,input);root.append(box);
+ }updateSend();
 }
-async function loadCv(){
- if(st.cv)return st.cv;
- for(let i=0;i<50;i++){
-  const x=window.cv?await window.cv:null;
-  if(x&&typeof x.imread==='function'){st.cv=x;return x}
-  await new Promise(r=>setTimeout(r,180));
- }
- throw Error('OpenCV não carregou. A correção manual continua disponível.');
+function applyRead(values){state.marks=values.slice();renderInputs();}
+function closeCamera(){
+ if(state.frame!==null){clearTimeout(state.frame);state.frame=null}
+ if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null}
+ video.pause();video.srcObject=null;$('freeze').disabled=true;
 }
-function drawSource(source){
- if(!source)return;
- const nativeW=source.videoWidth||source.naturalWidth||source.width,nativeH=source.videoHeight||source.naturalHeight||source.height;
- if(!nativeW||!nativeH)return;
- const scale=Math.min(1,1100/nativeW);
- const w=Math.round(nativeW*scale),h=Math.round(nativeH*scale);
- if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
- ctx.drawImage(source,0,0,w,h);
+function dimensions(source){
+ const w=source.videoWidth||source.naturalWidth||source.width;
+ const h=source.videoHeight||source.naturalHeight||source.height;
+ return w&&h?{w,h}:null;
 }
-function overlay(result){
- if(!result||!result.boxes||!result.boxes.length)return;
- const boxes=result.boxes;
- ctx.lineWidth=Math.max(2,canvas.width/550);
- for(let q=0;q<boxes.length;q++){
-  const b=boxes[q],read=result.results[q],color=read&&read.valid?'#19b36b':'#e0a333';
-  ctx.strokeStyle=color;ctx.strokeRect(b.x,b.y,b.w,b.h);
-  if(!read)continue;
-  for(let k=0;k<2;k++){
-   const r=read.columns[k];if(!r||r.digit===null)continue;
-   const x=b.x+b.w*(k===0?.329:.673),y=b.y+b.h*(.149+.0855*r.digit);
-   ctx.strokeStyle=read.valid?'#07ce62':'#f59e0b';
-   const rx=Math.max(3,b.w*.075),ry=Math.max(3,b.h*.022);
-   ctx.strokeRect(x-rx,y-ry,rx*2,ry*2);
-  }
- }
+function drawSnapshot(source){
+ const d=dimensions(source);if(!d)return false;
+ const k=Math.min(1,1200/d.w);snapshot.width=Math.round(d.w*k);snapshot.height=Math.round(d.h*k);
+ ctx.drawImage(source,0,0,snapshot.width,snapshot.height);return true;
 }
-function readImage(lib){
- const src=lib.imread(canvas),gray=new lib.Mat(),bw=new lib.Mat(),contours=new lib.MatVector(),hierarchy=new lib.Mat();
+function drawBoxes(result,fromMarks=false){
+ overlayCtx.clearRect(0,0,overlay.width,overlay.height);
+ const target=state.frozen?ctx:overlayCtx;
+ if(state.frozen&&state.source){drawSnapshot(state.source);}
+ if(!result||!result.boxes||result.boxes.length!==10)return;
+ target.lineWidth=Math.max(2,(state.frozen?snapshot.width:overlay.width)/550);
+ result.boxes.forEach((b,q)=>{
+  const value=fromMarks?state.marks[q]:(result.results[q]?.valid?result.results[q].value:null);
+  target.strokeStyle=value===null?'#f59e0b':'#16c784';
+  target.strokeRect(b.x,b.y,b.w,b.h);
+  if(value===null)return;
+  [[.329,Math.floor(value/10)],[.673,value%10]].forEach(([x,digit])=>{
+   const cx=b.x+b.w*x,cy=b.y+b.h*(.149+.0855*digit),rx=Math.max(3,b.w*.07),ry=Math.max(3,b.h*.023);
+   target.strokeRect(cx-rx,cy-ry,2*rx,2*ry);
+  });
+ });
+}
+function loadCv(){
+ if(state.cv)return Promise.resolve(state.cv);
+ if(state.cvPromise)return state.cvPromise;
+ state.cvPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.async=true;script.src='https://docs.opencv.org/4.13.0/opencv.js';
+  let finished=false;
+  const fail=why=>{if(finished)return;finished=true;state.cvPromise=null;reject(Error(why))};
+  const timeout=setTimeout(()=>fail('Biblioteca de leitura indisponível.'),9000);
+  script.onerror=()=>{clearTimeout(timeout);fail('Não foi possível carregar o leitor óptico.')};
+  script.onload=async()=>{
+   try{const cv=await window.cv;if(!cv||typeof cv.imread!=='function')throw Error('Leitor óptico não inicializou.');
+    if(finished)return;finished=true;clearTimeout(timeout);state.cv=cv;resolve(cv);
+   }catch(e){clearTimeout(timeout);fail(String(e.message||e))}
+  };
+  document.head.append(script);
+ });
+ return state.cvPromise;
+}
+function readImage(lib,sourceCanvas){
+ const src=lib.imread(sourceCanvas),gray=new lib.Mat(),bw=new lib.Mat(),contours=new lib.MatVector(),hierarchy=new lib.Mat();
  try{
   lib.cvtColor(src,gray,lib.COLOR_RGBA2GRAY);
   lib.threshold(gray,bw,0,255,lib.THRESH_BINARY_INV|lib.THRESH_OTSU);
@@ -147,180 +152,111 @@ function readImage(lib){
   return {boxes,results};
  }finally{src.delete();gray.delete();bw.delete();contours.delete();hierarchy.delete()}
 }
-function updateTable(values,detected,retainManual){
- st.values=values.slice();
- answerEl.innerHTML='';
- for(let i=0;i<10;i++){
-  const cell=document.createElement('div');cell.className='item '+(detected&&detected[i]?'verified':'unread');
-  const label=document.createElement('strong');label.textContent='Q'+String(i+1).padStart(2,'0');
-  const input=document.createElement('input');input.type='number';input.inputMode='numeric';input.min='0';input.max='15';input.step='1';input.dataset.question=i;input.placeholder='--';
-  input.value=values[i]===null||values[i]===undefined?'':String(values[i]).padStart(2,'0');
-  input.addEventListener('input',()=>{
-   const raw=input.value.trim(),value=raw===''?null:Number(raw);
-   st.values[i]=value!==null&&Number.isInteger(value)&&value>=0&&value<=15?value:null;
-   cell.className='item '+(st.values[i]!==null?'verified':'unread');
-   st.manualEdit=true;toggleSend();
-   if(st.frozen&&st.last){drawSource(st.source);overlay(adjustedResult())}
-  });
-  cell.append(label,input);answerEl.appendChild(cell);
- }
- toggleSend();
+
+async function detectFromCanvas(sourceCanvas){
+ if(state.recognizing)return null;
+ state.recognizing=true;
+ try{const lib=await loadCv();return readImage(lib,sourceCanvas)}
+ finally{state.recognizing=false}
 }
-function toggleSend(){send.disabled=st.values.some(v=>!Number.isInteger(v)||v<0||v>15)||!(turma==='1A'||turma==='1B')||!Number.isInteger(num)||num<1||!['A','B','C'].includes(tipo)}
-function adjustedResult(){
- if(!st.last)return null;
- const r=st.last;
- return {boxes:r.boxes,results:r.results.map((z,i)=>{
-  const v=st.values[i];if(v===null)return {columns:[],valid:false};
-  return {columns:[{digit:Math.floor(v/10)},{digit:v%10}],valid:true};
- })};
-}
-async function analyzeFrame(source,live){
- if(st.busy)return;
- st.busy=true;
- try{
-  drawSource(source);
-  const lib=await loadCv();
-  const found=readImage(lib);
-  st.last=found.boxes.length?found:null;
-  if(found.error){if(!live){updateTable(Array(10).fill(null),Array(10).fill(false));status(found.error+' Digite as respostas na tabela.')}return}
-  if(live){
-   const key=found.results.map(q=>q.valid?String(q.value).padStart(2,'0'):'??').join('|');
-   st.stable.push(key);if(st.stable.length>4)st.stable.shift();
-   const stable=st.stable.length>=3&&st.stable.every(k=>k===key)&&found.results.every(r=>r.valid);
-   status(stable?'10 marcações estáveis. Toque em Congelar e revisar.':'Ajuste o enquadramento até que os quadradinhos fiquem verdes.');
-  }else{
-   const values=found.results.map(r=>r.valid?r.value:null);
-   updateTable(values,found.results.map(r=>r.valid),false);
-   status('Imagem congelada. Toque diretamente num quadradinho ou edite a soma na tabela.');
-  }
-  overlay(found);
- }catch(err){status('Leitor indisponível: '+String(err.message||err)+'. Você pode usar a correção por toque.')}
- finally{st.busy=false}
-}
-function showLiveVideo(){
- if(!st.stream||st.frozen||!st.video)return;
- if(st.video.readyState>=2){
-  drawSource(st.video);
-  if(st.last&&st.last.boxes)overlay(st.last);
- }
- previewFrame=requestAnimationFrame(showLiveVideo);
-}
+function showSource(){viewport.classList.toggle('mode-live',!!state.stream);viewport.classList.toggle('mode-photo',state.frozen)}
 function liveLoop(){
- if(!st.stream||st.frozen)return;
- if(!st.cv){st.timer=setTimeout(liveLoop,1000);return}
- if(!st.busy&&st.video&&st.video.readyState>=2){
-  // O processamento usa os pixels do quadro, mas a prévia nunca depende do OpenCV.
-  const lib=st.cv;
-  st.busy=true;
-  try{
-   drawSource(st.video);
-   const result=readImage(lib);
-   st.last=result.error?null:result;
-   if(!result.error){
-    status('Câmera ativa. Quadradinhos verdes: leitura estimada. Congele para conferir.');
-   }else status('Câmera ativa. Enquadre as dez colunas ou congele para digitar as respostas.');
-  }catch(e){status('Câmera ativa; leitura automática indisponível. Congele para corrigir manualmente.')}
-  finally{st.busy=false}
- }
- st.timer=setTimeout(liveLoop,1200);
-}
-let openingCamera=false;
-document.getElementById('start').onclick=async()=>{
- if(openingCamera)return;
- openingCamera=true;
- stopCamera();st.frozen=false;st.source=null;st.stable=[];st.last=null;
- const button=document.getElementById('start');button.disabled=true;
- let stream=null;
- try{
-  if(!window.isSecureContext)throw Error('A câmera exige HTTPS. Abra o endereço publicado do aplicativo.');
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Error('Seu navegador não permite abrir a câmera nesta página.');
-  status('Solicitando acesso à câmera…');
-  try{
-   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
-  }catch(err){
-   if(err.name==='OverconstrainedError'||err.name==='NotFoundError')
-    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
-   else throw err;
+ if(!state.stream||state.frozen)return;
+ const d=dimensions(video);
+ if(d&&!state.recognizing){
+  const scale=Math.min(1,800/d.w),w=Math.round(d.w*scale),h=Math.round(d.h*scale);
+  if(overlay.width!==w||overlay.height!==h){overlay.width=w;overlay.height=h}
+  overlayCtx.clearRect(0,0,w,h);
+  state.analysisCanvas.width=w;state.analysisCanvas.height=h;
+  state.analysisCanvas.getContext('2d',{willReadFrequently:true}).drawImage(video,0,0,w,h);
+  if(state.cv){
+   try{const result=readImage(state.cv,state.analysisCanvas);if(!result.error){state.result=result;drawBoxes(result,false)}else state.result=null}
+   catch(e){state.result=null}
   }
-  const video=document.createElement('video');
-  video.muted=true;video.playsInline=true;video.autoplay=true;
-  video.setAttribute('playsinline','');
-  video.setAttribute('webkit-playsinline','');
-  video.srcObject=stream;
-  st.stream=stream;st.video=video;st.source=video;st.sourceType='video';
-  await video.play();
-  document.getElementById('freeze').disabled=false;
-  status('Câmera aberta. Aponte para o cartão e toque em Congelar imagem.');
-  showLiveVideo();
-  // OpenCV carrega de forma independente. A câmera continua aberta se falhar.
-  loadCv().then(lib=>{if(st.stream&&!st.frozen)liveLoop()})
-   .catch(()=>{if(st.stream)status('Câmera aberta. Se a leitura não aparecer, congele e corrija na tabela.')});
- }catch(err){
-  if(stream&&!st.stream)stream.getTracks().forEach(t=>t.stop());
-  stopCamera();
-  let reason=String(err.message||err);
-  if(err.name==='NotAllowedError')reason='Permissão da câmera negada. Autorize a câmera para este site nas configurações do navegador.';
-  if(err.name==='NotReadableError')reason='A câmera está ocupada. Feche outro aplicativo que esteja utilizando a câmera.';
-  status('Não foi possível abrir a câmera: '+reason);
- }finally{openingCamera=false;button.disabled=false}
-};
-document.getElementById('freeze').onclick=async()=>{
- if(!st.source)return;
- st.frozen=true;clearTimer();drawSource(st.source);
- const screenshot=new Image();screenshot.src=canvas.toDataURL('image/png');
- await new Promise(resolve=>{screenshot.onload=resolve;screenshot.onerror=resolve});
- st.source=screenshot;st.sourceType='image';
- stopCamera();
- // Aguardar a análise do último frame ao vivo antes de analisar a imagem congelada.
- for(let attempt=0;st.busy&&attempt<50;attempt++)await new Promise(resolve=>setTimeout(resolve,40));
- if(st.busy){status('A análise da câmera ainda está ocupada. Toque em Reanalisar imagem.');return;}
- await analyzeFrame(st.source,false);
-};
-document.getElementById('photo').onchange=async e=>{
- const f=e.target.files[0];if(!f)return;
- stopCamera();st.frozen=true;st.stable=[];
- const url=URL.createObjectURL(f),i=new Image();
+ }
+ state.frame=setTimeout(liveLoop,1300);
+}
+async function openCamera(){
+ if(state.loading)return;
+ state.loading=true;$('open').disabled=true;
+ closeCamera();state.frozen=false;state.result=null;state.source=null;
  try{
-  await new Promise((resolve,reject)=>{i.onload=resolve;i.onerror=reject;i.src=url});
-  st.source=i;st.sourceType='image';st.last=null;
-  await analyzeFrame(i,false);
- }catch(err){status('Falha ao abrir imagem: '+String(err.message||err))}
+  if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('A câmera exige uma página HTTPS e permissão do navegador.');
+  message('Solicitando acesso à câmera…');
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}})}
+  catch(e){if(['NotFoundError','OverconstrainedError'].includes(e.name))stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});else throw e}
+  state.stream=stream;video.srcObject=stream;
+  await video.play();state.frozen=false;showSource();$('freeze').disabled=false;
+  message('Câmera aberta. Enquadre o cartão e toque em Congelar imagem.');
+  liveLoop();
+  // O reconhecimento carrega depois de abrir vídeo, sem bloquear câmera ou botões.
+  loadCv().catch(()=>{if(state.stream)message('Câmera aberta. Se os destaques não aparecerem, congele e preencha os campos.')});
+ }catch(e){
+  closeCamera();showSource();
+  const msg=e.name==='NotAllowedError'?'Permissão negada. Autorize a câmera para este site.':e.name==='NotReadableError'?'Câmera ocupada por outro aplicativo.':String(e.message||e);
+  message('Não foi possível abrir a câmera: '+msg+'. Escolha uma imagem ou digite as somatórias.');
+ }finally{state.loading=false;$('open').disabled=false}
+}
+$('open').onclick=openCamera;
+$('freeze').onclick=async()=>{
+ if(!state.stream)return;
+ if(!drawSnapshot(video)){message('A câmera ainda não produziu imagem.');return}
+ const frozen=new Image();const ready=new Promise((resolve,reject)=>{frozen.onload=resolve;frozen.onerror=reject});
+ frozen.src=snapshot.toDataURL('image/png');
+ state.frozen=true;state.source=frozen;closeCamera();showSource();
+ try{await ready}catch(e){message('Imagem não disponível. Digite as somatórias.');return}
+ message('Imagem congelada. Corrija as somatórias ou toque em Ler marcações da imagem.');
+ if(state.result){drawSnapshot(state.source);drawBoxes(state.result,false)}
+};
+$('file').onchange=async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ closeCamera();state.frozen=true;state.result=null;showSource();
+ const url=URL.createObjectURL(f),img=new Image();
+ try{
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
+  state.source=img;drawSnapshot(img);
+  message('Imagem carregada. Toque em Ler marcações da imagem ou informe as respostas abaixo.');
+ }catch(err){message('Falha ao abrir a imagem: '+String(err.message||err))}
  finally{URL.revokeObjectURL(url)}
 };
-canvas.addEventListener('pointerdown',e=>{
- if(!st.frozen||!st.last||!st.last.boxes||st.last.boxes.length!==10)return;
- const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)*canvas.width/rect.width,y=(e.clientY-rect.top)*canvas.height/rect.height;
+$('analyze').onclick=async()=>{
+ if(!state.frozen||!state.source){message('Congele a câmera ou escolha uma imagem antes de analisar.');return}
+ if(!drawSnapshot(state.source))return;
+ message('Analisando imagem…');
+ try{
+  const found=await detectFromCanvas(snapshot);
+  if(!found)return;
+  if(found.error){state.result=null;message('Não foi possível identificar as dez colunas. Use os campos manuais abaixo.');return}
+  state.result=found;applyRead(found.results.map(r=>r.valid?r.value:null));
+  drawBoxes(found,true);
+  message('Leitura realizada. Confira e corrija as dez somatórias antes de enviar.');
+ }catch(err){message('Leitura automática indisponível: '+String(err.message||err)+'. Digite as respostas abaixo.')}
+};
+snapshot.addEventListener('pointerdown',e=>{
+ if(!state.frozen||!state.result||state.result.boxes.length!==10)return;
+ const rect=snapshot.getBoundingClientRect(),x=(e.clientX-rect.left)*snapshot.width/rect.width,y=(e.clientY-rect.top)*snapshot.height/rect.height;
  for(let q=0;q<10;q++){
-  const b=st.last.boxes[q];
+  const b=state.result.boxes[q];
   if(x<b.x||x>b.x+b.w||y<b.y||y>b.y+b.h)continue;
-  const fracX=(x-b.x)/b.w,fracY=(y-b.y)/b.h;
-  const digit=Math.round((fracY-.149)/.0855);
-  if(digit<0||digit>9)return;
-  const tens=fracX<.50;
-  if(tens&&digit>1)return;
-  const prev=st.values[q]===null?0:st.values[q];
-  const value=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
-  if(value>15){status('Essa combinação ultrapassa 15. Corrija dezena ou unidade.');return}
-  st.values[q]=value;st.manualEdit=true;
-  const inp=answerEl.querySelector('input[data-question="'+q+'"]');
-  if(inp){inp.value=String(value).padStart(2,'0');inp.parentElement.className='item verified'}
-  toggleSend();drawSource(st.source);overlay(adjustedResult());
-  status('Q'+String(q+1).padStart(2,'0')+' ajustada para '+String(value).padStart(2,'0')+' pelo toque.');
+  const digit=Math.round(((y-b.y)/b.h-.149)/.0855),tens=(x-b.x)/b.w<.5;
+  if(digit<0||digit>9||(tens&&digit>1))return;
+  const prev=state.marks[q]??0,v=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
+  if(v>15){message('Somatória máxima é 15. Escolha outro quadradinho.');return}
+  state.marks[q]=v;renderInputs();drawBoxes(state.result,true);
+  message('Q'+String(q+1).padStart(2,'0')+' alterada para '+String(v).padStart(2,'0')+'.');
   return;
  }
 });
-send.onclick=()=>{
- const fields=[...answerEl.querySelectorAll('input[data-question]')];
- if(fields.length!==10){status('Preencha as dez questões antes de enviar.');return}
- const marks=fields.map(f=>f.value.trim()===''?NaN:Number(f.value));
- if(marks.some(n=>!Number.isInteger(n)||n<0||n>15)){status('Confira todas as somatórias: somente valores de 00 a 15.');return}
- if(!confirm('Confirma as dez respostas para a chamada '+num+' da turma '+turma+'? A nota será calculada no corretor.'))return;
- localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,source:'scanner-live',timestamp:Date.now()}));
- stopCamera();location.href='index.html?omr=1';
+$('send').onclick=()=>{
+ if($('send').disabled)return;
+ if(!confirm('Confirmar as dez somatórias do aluno '+num+', turma '+turma+'?'))return;
+ try{localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks:state.marks.slice(),source:'camera-or-image',timestamp:Date.now()}));closeCamera();location.href='index.html?omr=1'}
+ catch(e){message('Não foi possível guardar as respostas: '+String(e.message||e))}
 };
-document.getElementById('back').onclick=()=>{stopCamera();location.href='index.html'};
-window.addEventListener('pagehide',stopCamera);
-updateTable(Array(10).fill(null),Array(10).fill(false));
-loadCv().catch(()=>{});
+$('back').onclick=()=>{closeCamera();location.href='index.html'};
+window.addEventListener('pagehide',closeCamera);
+renderInputs();showSource();
+// Em algumas versões do iOS é necessário tocar em Abrir câmera após a permissão.
+setTimeout(()=>{openCamera()},150);
 </script></body></html>
