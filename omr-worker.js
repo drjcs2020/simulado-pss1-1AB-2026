@@ -16,7 +16,7 @@ function decode(data){
    const pixel=dark[yy*w+x]||dark[(yy-1)*w+x]||dark[(yy+1)*w+x];
    if(pixel){
     if(start===-1){start=x;last=x}
-    else if(x-last<=Math.max(2,Math.round(w*.004)))last=x;
+    else if(x-last<=1)last=x;
     else {if(last-start+1>=Math.max(7,w*.013))out.push({x:start,end:last,w:last-start+1});start=x;last=x}
    }
   }
