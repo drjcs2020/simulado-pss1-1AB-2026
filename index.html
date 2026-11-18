@@ -249,19 +249,39 @@ async function openQr(){
   qrBusy=false;qrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
   const v=$('qrVideo');v.srcObject=qrStream;v.classList.remove('hide');await v.play();
   $('qrButton').textContent='Fechar câmera';
-  if(!('BarcodeDetector' in window)){toast('Seu navegador não reconhece QR nativamente. Selecione o aluno pela lista.');return}
-  const detector=new BarcodeDetector({formats:['qr_code']});
+  let detector=null,jsqr=null,qrCanvas=null;
+  if('BarcodeDetector' in window){
+   try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}
+  }
+  if(!detector){
+   toast('Preparando leitor QR para este navegador…');
+   const loader=document.createElement('script');
+   loader.src='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+   loader.async=true;
+   loader.onload=()=>{jsqr=window.jsQR;qrCanvas=document.createElement('canvas');toast('Leitor QR preparado. Aponte a câmera para o código.')};
+   loader.onerror=()=>toast('QR automático indisponível neste navegador. Selecione o aluno na lista.');
+   document.head.append(loader);
+  }
   qrTimer=setInterval(async()=>{
    if(qrBusy||!qrStream)return;
-   qrBusy=true;try{
-    const codes=await detector.detect(v);
-    const raw=codes[0]?.rawValue;
-    if(raw){const parts=String(raw).split('|');if(parts[0]==='PSS1'&&['1A','1B'].includes(parts[1])){
-     const n=Number(parts[2]),st=ROSTERS[parts[1]].find(a=>a.num===n);
-     if(st&&st.type===parts[3]){closeQr();$('group').value=parts[1];groupChange(n);openCard(true);return}
-    }}
+   qrBusy=true;
+   try{
+    let raw=null;
+    if(detector){const codes=await detector.detect(v);raw=codes[0]?.rawValue}
+    else if(jsqr&&qrCanvas&&v.videoWidth&&v.videoHeight){
+     qrCanvas.width=v.videoWidth;qrCanvas.height=v.videoHeight;
+     const c=qrCanvas.getContext('2d',{willReadFrequently:true});c.drawImage(v,0,0,qrCanvas.width,qrCanvas.height);
+     raw=jsqr(c.getImageData(0,0,qrCanvas.width,qrCanvas.height).data,qrCanvas.width,qrCanvas.height)?.data;
+    }
+    if(raw){
+     const parts=String(raw).trim().split('|');
+     if(parts[0]==='PSS1'&&['1A','1B'].includes(parts[1])){
+      const n=Number(parts[2]),st=ROSTERS[parts[1]].find(a=>a.num===n);
+      if(st&&st.type===parts[3]){closeQr();$('group').value=parts[1];groupChange(n);openCard(true)}
+     }
+    }
    }catch(e){}finally{qrBusy=false}
-  },450);
+  },650);
  }catch(e){closeQr();toast('Erro de câmera: '+String(e.message||e))}
 }
 function closeQr(){
