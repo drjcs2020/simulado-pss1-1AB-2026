@@ -16,25 +16,17 @@ O cartão existente **não contém quatro âncoras pretas independentes**; ele t
 
 Requer computador com Node.js 22+, Android Studio/SDK, Java (JDK exigido pelo Expo/RN) e celular Android ou emulador com câmera. **O projeto não roda no Expo Go**: depende de módulos nativos.
 
-A partir da raiz do repositório:
+No terminal, dentro da pasta `android-native` deste repositório:
 
 ```bash
-# 1. Gerar projeto Expo com versões compatíveis entre React, RN e Expo
-npx create-expo-app@latest PSS1Android --template blank-typescript
-cd PSS1Android
-
-# 2. Instalar os módulos nativos; mantenha VisionCamera na major 5
-npx expo install @shopify/react-native-skia react-native-reanimated react-native-worklets @react-native-async-storage/async-storage
-npm install react-native-vision-camera@^5 react-native-nitro-modules react-native-nitro-image
-npm install react-native-vision-camera-worklets react-native-vision-camera-skia react-native-vision-camera-resizer react-native-vision-camera-barcode-scanner react-native-fast-opencv
-
-# 3. Copiar os arquivos do diretório android-native para a raiz de PSS1Android:
-#    App.tsx, app.json, babel.config.js e a pasta src/
-
-# 4. Gerar componentes nativos e compilar (não é um site do GitHub Pages)
+npm install
+npm run typecheck
+npm run test:logic
 npx expo prebuild --platform android
 npx expo run:android
 ```
+
+O `package.json` acompanha o código-fonte, usa Expo SDK 58 e VisionCamera V5. O aplicativo Android é independente do site GitHub Pages; não é possível abrir arquivos TSX diretamente no navegador.
 
 Use `npx expo install --check` para auditar compatibilidade; atualizações de módulos nativos exigem uma nova build. O código está estruturado para **VisionCamera V5** (`SkiaCamera` + `useResizer`) e não é compatível com a API V4 (`useSkiaFrameProcessor`/`runAtTargetFps`).
 
