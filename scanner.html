@@ -33,114 +33,115 @@ function groupNumbers(values,gap){
  if(g.length)gs.push(g);
  return gs.map(a=>a.reduce((s,n)=>s+n,0)/a.length);
 }
+
 function decode(){
- if(!img)throw Error('Selecione a foto do cartão.');
+ if(!img)throw Error('Selecione a imagem do cartão primeiro.');
  draw();
- const w=c.width,h=c.height,pixel=cx.getImageData(0,0,w,h).data;
- if(w<450||h<450)throw Error('Imagem pequena. Use uma foto com maior resolução.');
- const bw=new Uint8Array(w*h);
- for(let k=0,n=0;k<pixel.length;k+=4,n++){
-  const v=pixel[k]*.299+pixel[k+1]*.587+pixel[k+2]*.114;
-  bw[n]=v<125?1:0;
+ const w=c.width,h=c.height,rgba=cx.getImageData(0,0,w,h).data;
+ if(w<450||h<450)throw Error('Imagem pequena demais para a leitura.');
+ const dark=new Uint8Array(w*h);
+ for(let p=0,k=0;p<dark.length;p++,k+=4)
+   dark[p]=(rgba[k]*.299+rgba[k+1]*.587+rgba[k+2]*.114)<125?1:0;
+ // A borda de cada bloco é uma linha vertical longa. O detector antigo
+ // descartava toda a imagem quando 1 ou 2 das 20 linhas não eram percebidas.
+ // Agora a periodicidade das 10 colunas permite interpolar bordas ausentes.
+ const yStart=Math.floor(h*.44),yEnd=Math.floor(h*.97);
+ const sumX=new Uint32Array(w);
+ for(let y=yStart;y<yEnd;y++)for(let x=0;x<w;x++)sumX[x]+=dark[y*w+x];
+ let maximum=0;
+ for(const z of sumX)if(z>maximum)maximum=z;
+ const strong=[];
+ for(let x=0;x<w;x++)if(sumX[x]>=maximum*.70)strong.push(x);
+ const peaks=groupNumbers(strong,Math.max(3,Math.round(w*.002)));
+ if(peaks.length<12)throw Error('Não consegui localizar as dez colunas. Deixe a área das respostas inteira na foto.');
+ const left=peaks[0],right=peaks[peaks.length-1],span=right-left;
+ const smallGaps=[];
+ for(let i=1;i<peaks.length;i++){
+   const gap=peaks[i]-peaks[i-1];
+   if(gap<span/40 && gap>span/300)smallGaps.push(gap);
  }
- // Procurar linhas verticais longas. O bloco das respostas contém
- // exatamente 20 bordas externas (duas por questão), todas à mesma altura.
- const candidates=[];
- const minRun=Math.floor(h*.13);
- for(let x=0;x<w;x++){
-  let begin=-1,best=0,bestStart=0,bestEnd=0,gap=0;
-  for(let y=0;y<h;y++){
-   const isDark=bw[y*w+x];
-   if(isDark){
-    if(begin<0)begin=y;
-    gap=0;
-   }else if(begin>=0){
-    gap++;
-    if(gap>1){
-     const last=y-gap+1,len=last-begin;
-     if(len>best){best=len;bestStart=begin;bestEnd=last;}
-     begin=-1;gap=0;
-    }
+ smallGaps.sort((a,b)=>a-b);
+ if(!smallGaps.length)throw Error('Não consegui estabelecer a largura das colunas.');
+ const gap=smallGaps[Math.floor(smallGaps.length/2)];
+ const pitch=(span+gap)/10;
+ const boxes=Array.from({length:10},(_,q)=>[left+q*pitch,left+q*pitch+pitch-gap]);
+ if(pitch<25||boxes.some(([a,b])=>a<0||b>w))throw Error('A imagem não contém o bloco completo das respostas.');
+ // Encontrar a borda superior/inferior real na primeira coluna, permitindo
+ // pequenos espaços causados pelo antialiasing da imagem ou pela câmera.
+ const probeX=Math.max(0,Math.min(w-1,Math.round(left)));
+ let bestStart=-1,bestEnd=-1,currentStart=-1,lastDark=-1;
+ for(let y=0;y<h;y++){
+   if(dark[y*w+probeX]){
+     if(currentStart<0)currentStart=y;
+     lastDark=y;
+   }else if(currentStart>=0 && y-lastDark>2){
+     if(lastDark-currentStart>bestEnd-bestStart){bestStart=currentStart;bestEnd=lastDark;}
+     currentStart=-1;
    }
-  }
-  if(begin>=0 && h-begin>best){best=h-begin;bestStart=begin;bestEnd=h;}
-  if(best>=minRun)candidates.push({x,start:bestStart,end:bestEnd,len:best});
  }
- if(candidates.length<20)throw Error('Não encontrei os contornos das dez colunas. Fotografe o bloco completo.');
- // Procurar o conjunto de 20 linhas paralelas com mesmo início e fim.
- // A tolerância cobre diferenças pequenas de compressão e perspectiva.
- const tol=Math.max(3,h*.012);
- let cluster=[];
- for(const seed of candidates){
-  const group=candidates.filter(v=>Math.abs(v.start-seed.start)<=tol&&Math.abs(v.end-seed.end)<=tol);
-  if(group.length>cluster.length)cluster=group;
- }
- if(cluster.length<20)throw Error('A foto está muito inclinada ou desfocada. Aproxime o celular e fotografe de frente.');
- const xs=groupNumbers(cluster.map(a=>a.x).sort((a,b)=>a-b),2);
- if(xs.length!==20)throw Error('Não foi possível separar as dez colunas. Use a foto inteira do cartão, sem reflexos.');
- const boxes=Array.from({length:10},(_,i)=>[xs[2*i],xs[2*i+1]]);
- const widths=boxes.map(b=>b[1]-b[0]),avgWidth=widths.reduce((a,b)=>a+b,0)/10;
- if(boxes.some(b=>b[1]-b[0]<avgWidth*.8||b[1]-b[0]>avgWidth*1.2)){
-  throw Error('Os contornos das colunas não estão consistentes. Fotografe de frente.');
- }
- const top=Math.min(...cluster.map(a=>a.start));
- const bottom=Math.max(...cluster.map(a=>a.end));
- const height=bottom-top;
- const yFrom=Math.max(0,Math.floor(top+height*.04));
- const yTo=Math.min(h,Math.floor(bottom-height*.013));
- // Em cada linha horizontal, somar os traços superior/inferior dos quadradinhos
- // ao redor das dezenas e unidades. Esses traços se repetem 20 vezes.
+ if(currentStart>=0&&lastDark-currentStart>bestEnd-bestStart){bestStart=currentStart;bestEnd=lastDark;}
+ if(bestStart<0||bestEnd-bestStart<h*.12)throw Error('Não consegui localizar a altura das colunas.');
+ const gridHeight=bestEnd-bestStart;
+ const bandStart=Math.max(0,Math.floor(bestStart+gridHeight*.04));
+ const bandEnd=Math.min(h,Math.ceil(bestEnd-gridHeight*.02));
+ // Os 20 traços horizontais (topo e base dos dez dígitos) se repetem
+ // nas 10 colunas. Encontrá-los evita qualquer ajuste manual no celular.
  const bars=[];
- for(let y=yFrom;y<yTo;y++){
-  let total=0;
-  for(const [left,right] of boxes){
-   const wd=right-left;
-   for(const frac of [.30,.67]){
-    const center=Math.round(left+frac*wd);
-    const rad=Math.max(2,Math.round(wd*.085));
-    for(let x=Math.max(0,center-rad);x<=Math.min(w-1,center+rad);x++)total+=bw[y*w+x];
+ for(let y=bandStart;y<bandEnd;y++){
+   let count=0;
+   for(const [a,b] of boxes){
+     const wd=b-a;
+     for(const frac of [.30,.67]){
+       const xc=Math.round(a+frac*wd);
+       const rad=Math.max(2,Math.round(wd*.09));
+       for(let x=Math.max(0,xc-rad);x<=Math.min(w-1,xc+rad);x++)count+=dark[y*w+x];
+     }
    }
-  }
-  bars.push({y,total});
+   bars.push(count);
  }
- const maxBar=Math.max(...bars.map(v=>v.total));
- const rowBars=groupNumbers(bars.filter(v=>v.total>maxBar*.48).map(v=>v.y),2);
- if(rowBars.length!==20)throw Error('Não foi possível identificar as dez linhas de dígitos. Aproxime a câmera do cartão.');
- const centers=Array.from({length:10},(_,i)=>(rowBars[i*2]+rowBars[i*2+1])/2);
- const cellHeight=rowBars[1]-rowBars[0];
- function darkness(cx0,cy0,rx,ry){
-  let black=0,total=0;
-  for(let y=Math.max(0,Math.round(cy0-ry));y<=Math.min(h-1,Math.round(cy0+ry));y++)
-   for(let x=Math.max(0,Math.round(cx0-rx));x<=Math.min(w-1,Math.round(cx0+rx));x++){
-    black+=bw[y*w+x];total++;
-   }
-  return total?black/total:0;
+ const barMax=Math.max(...bars),levels=[.55,.50,.45,.60,.40];
+ let horizontal=[];
+ for(const level of levels){
+   const ys=[];
+   for(let i=0;i<bars.length;i++)if(bars[i]>barMax*level)ys.push(i+bandStart);
+   horizontal=groupNumbers(ys,Math.max(2,Math.round(h*.001)));
+   if(horizontal.length===20)break;
  }
- const out=[];
+ if(horizontal.length!==20)throw Error('Não foi possível identificar os quadradinhos das respostas. Centralize somente a área das dez colunas.');
+ const rows=Array.from({length:10},(_,d)=>(horizontal[2*d]+horizontal[2*d+1])/2);
+ const heightCell=horizontal[1]-horizontal[0];
+ function density(x,y,rx,ry){
+   let black=0,total=0;
+   for(let yy=Math.max(0,Math.round(y-ry));yy<=Math.min(h-1,Math.round(y+ry));yy++)
+     for(let xx=Math.max(0,Math.round(x-rx));xx<=Math.min(w-1,Math.round(x+rx));xx++){
+       black+=dark[yy*w+xx];total++;
+     }
+   return total?black/total:0;
+ }
+ const result=[];
  for(let q=0;q<10;q++){
-  const [left,right]=boxes[q],wd=right-left;
-  const parsed=[];
-  for(const [frac,digits] of [[.30,2],[.67,10]]){
-   const x=left+frac*wd;
-   const scores=Array.from({length:digits},(_,digit)=>darkness(x,centers[digit],Math.max(2,wd*.07),Math.max(2,cellHeight*.29)));
-   const ranked=scores.map((score,digit)=>({digit,score})).sort((a,b)=>b.score-a.score);
-   parsed.push({digit:ranked[0].digit,score:ranked[0].score,margin:ranked[0].score-ranked[1].score,x});
-  }
-  const value=parsed[0].digit*10+parsed[1].digit;
-  const reliable=value<=15&&parsed.every(z=>z.score>=.62&&z.margin>=.35);
-  out.push({value,parsed,reliable});
+   const [a,b]=boxes[q],wd=b-a;
+   const columns=[];
+   for(const [frac,limit] of [[.30,2],[.67,10]]){
+     const x=a+frac*wd;
+     const scores=Array.from({length:limit},(_,d)=>density(x,rows[d],Math.max(2,wd*.07),Math.max(2,heightCell*.26)));
+     const sorted=scores.map((value,digit)=>({value,digit})).sort((v,z)=>z.value-v.value);
+     columns.push({digit:sorted[0].digit,value:sorted[0].value,margin:sorted[0].value-sorted[1].value,x});
+   }
+   const value=10*columns[0].digit+columns[1].digit;
+   const reliable=value<=15&&columns.every(v=>v.value>.65&&v.margin>.35);
+   result.push({value,parsed:columns,reliable});
  }
- // Mostrar no cartão os centros reais que foram examinados.
  draw();
  cx.lineWidth=Math.max(2,w/650);
  for(let q=0;q<10;q++){
-  for(let col=0;col<2;col++){
-   const d=out[q].parsed[col],y=centers[d.digit],rad=Math.max(3,widths[q]*.055);
-   cx.strokeStyle=out[q].reliable?'#15803d':'#dc2626';
-   cx.strokeRect(d.x-rad,y-rad,2*rad,2*rad);
-  }
+   for(let d=0;d<2;d++){
+     const z=result[q].parsed[d],y=rows[z.digit],radius=Math.max(3,(boxes[q][1]-boxes[q][0])*.055);
+     cx.strokeStyle=result[q].reliable?'#15803d':'#dc2626';
+     cx.strokeRect(z.x-radius,y-radius,2*radius,2*radius);
+   }
  }
- return out;
+ return result;
 }
 document.getElementById('analisar').onclick=()=>{
  let out;
