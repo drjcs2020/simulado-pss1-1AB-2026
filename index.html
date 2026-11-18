@@ -83,6 +83,7 @@
       <div class="card">
         <div class="row" style="justify-content:space-between;">
           <button class="btn btn-primary" onclick="toggleCamera()" id="btnCamera">📷 Ler QR Code da Prova</button><button class="btn btn-ok" onclick="openOmrScanner()">📄 Ler cartão (dezenas/unidades)</button>
+          <button class="btn btn-outline" onclick="retestCurrentCard()">🔁 Testar novamente (sem apagar nota)</button>
           <span id="qrFeedback" style="font-size:12px;color:var(--muted);">Formato: PSS1|TURMA|Nº|TIPO</span>
         </div>
         <video id="qrVideo" playsinline></video>
@@ -228,6 +229,15 @@ function openOmrScanner() {
   const st = ROSTERS[turma].find(x => x.num === num);
   if (!st) { showToast('Selecione primeiro um estudante.'); return; }
   location.href = 'scanner.html?turma=' + encodeURIComponent(turma) + '&num=' + num + '&tipo=' + encodeURIComponent(st.type);
+}
+function retestCurrentCard() {
+  const turma=document.getElementById('selTurma').value;
+  const num=Number(document.getElementById('selAluno').value);
+  const st=(ROSTERS[turma]||[]).find(x=>x.num===num);
+  if(!st){showToast('Selecione o estudante do cartão.');return;}
+  // Reteste não apaga notas locais nem as já confirmadas no Google Sheets.
+  localStorage.removeItem('pss1_omr_pending');
+  location.href='scanner.html?turma='+encodeURIComponent(turma)+'&num='+num+'&tipo='+encodeURIComponent(st.type)+'&reteste=1';
 }
 function importPendingOmr() {
   const raw = localStorage.getItem('pss1_omr_pending');
