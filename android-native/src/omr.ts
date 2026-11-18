@@ -67,7 +67,7 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
     let hits=0,n=0;
     for(let x=r.x+2;x<=r.end-2;x++){
      const yy=Math.round(y+c.slope*(x-w/2));
-     if(yy>=0&&yy<h){n++;hits+=dark[yy*w+x]}
+     if(yy>=0&&yy<h){n++;hits+=dark[yy*w+x]>0?1:0}
     }
     const ratio=n?hits/n:0;
     lined+=ratio;if(ratio>.50)well++;
@@ -78,11 +78,12 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
   if(bestY&&(!top||c.score>top.score)){top=c;lower=bestY}
  }
  if(!top)return {error:"As bordas do cartão não foram identificadas. Aproxime e enquadre as dez colunas.",boxes:[],results:[]};
- const height=lower-top.y;
- const boxes=top.runs.map(r=>{
-  const y=top.y+top.slope*(r.x-w/2);
+ const chosen=top;
+ const height=lower-chosen.y;
+ const boxes=chosen.runs.map(r=>{
+  const y=chosen.y+chosen.slope*(r.x-w/2);
   return {x:r.x,y,w:r.w,h:height,quad:[
-   {x:r.x,y},{x:r.end,y:y+top.slope*(r.end-r.x)},
+   {x:r.x,y},{x:r.end,y:y+chosen.slope*(r.end-r.x)},
    {x:r.end,y:y+top.slope*(r.end-r.x)+height},{x:r.x,y:y+height}
   ]};
  });
@@ -90,7 +91,7 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
   let total=0,num=0;
   for(let yy=Math.max(0,Math.round(cy-ry));yy<=Math.min(h-1,Math.round(cy+ry));yy++)
    for(let xx=Math.max(0,Math.round(cx-rx));xx<=Math.min(w-1,Math.round(cx+rx));xx++){
-    total+=dark[yy*w+xx];num++;
+    total+=dark[yy*w+xx]>0?1:0;num++;
    }
   return num?total/num:0;
  }
@@ -100,7 +101,7 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
    const scores=[];
    for(let d=0;d<count;d++){
     const cx=b.x+b.w*fraction;
-    const cy=b.y+top.slope*(cx-b.x)+b.h*(.149+.0855*d);
+    const cy=b.y+chosen.slope*(cx-b.x)+b.h*(.149+.0855*d);
     const fill=density(cx,cy,Math.max(2,b.w*.055),Math.max(2,b.h*.016));
     scores.push({digit:d,value:fill});
    }
