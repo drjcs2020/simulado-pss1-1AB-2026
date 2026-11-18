@@ -2,22 +2,17 @@
 <html lang="pt-BR">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173b75"><title>Leitor de cartão PSS</title>
 <style>
-*{box-sizing:border-box}body{font:15px system-ui,-apple-system,Arial,sans-serif;background:#edf2f8;color:#10243e;max-width:900px;margin:auto;padding:12px}section{background:white;border:1px solid #d9e1ec;border-radius:12px;padding:12px;margin-bottom:12px}h1{font-size:20px;margin:2px 0 8px}p{line-height:1.4}button,input{font:inherit;border-radius:8px;padding:10px}button{border:0;background:#1e4085;color:white;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e7effa;color:#234061}button.good{background:#16724a}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.controls>*{flex:1 1 125px}.file{display:block;border:1px solid #b6c4d5;border-radius:9px;padding:8px;font-size:13px}.file input{width:100%;font-size:13px}.viewport{position:relative;background:#0b1422;min-height:220px;border-radius:10px;overflow:hidden}.viewport video,.viewport canvas{width:100%;height:auto;display:block}.viewport video{display:none}.viewport canvas#overlay{position:absolute;left:0;top:0;pointer-events:none}.viewport canvas#snapshot{display:none;touch-action:manipulation}.viewport.mode-live video,.viewport.mode-live canvas#overlay{display:block}.viewport.mode-photo canvas#snapshot{display:block}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.answer{background:#f4f7fb;border:1px solid #d1dcec;border-radius:8px;padding:7px}.answer label{display:block;text-align:center;font-weight:700}.answer .marks{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:6px}
-.answer button.mark{padding:6px 5px;min-width:31px;flex:1;border:1px solid #9baec8;border-radius:5px;background:white;color:#193552;font-weight:700;font-size:12px}
-.answer button.mark.selected{background:#173b75;color:white;border-color:#173b75}
-.answer .sum{text-align:center;font-weight:700;font-size:17px;margin-top:6px}.answer.missing{background:#fff3e4}.message{font-size:13px;color:#42556f;min-height:22px}small{color:#586f8b}@media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.controls>*{flex-basis:120px}}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font:15px system-ui,-apple-system,sans-serif;color:#10243e;background:#eff3f8}button{font:inherit;border:0;border-radius:10px;padding:13px 15px;background:#1b447f;color:white;font-weight:700;touch-action:manipulation;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e8eef8;color:#143b71}button.good{background:#13764a}header{padding:10px 14px;background:white;border-bottom:1px solid #dbe3ee;display:flex;justify-content:space-between;align-items:center;gap:8px}h1{font-size:17px;margin:0}#student{font-size:12px;color:#546a83;margin-top:4px}.headerback{background:#eef2f8;color:#1e3a65;padding:9px 14px}.toolbar{display:flex;gap:8px;padding:9px 12px;background:white}.toolbar button,.toolbar label{flex:1;min-width:0}.filelabel{border:1px solid #afc0d4;border-radius:9px;background:#f1f6fc;padding:9px;text-align:center;font-weight:700;color:#1c426f;cursor:pointer}.filelabel input{display:none}.message{font-size:13px;padding:6px 12px;color:#35516c;background:white;min-height:27px}#viewport{position:relative;background:#060b14;overflow:hidden;height:63dvh;min-height:340px;display:flex;justify-content:center;align-items:center}#viewport video,#viewport canvas{display:none;max-width:100%;max-height:100%;object-fit:contain}#viewport.mode-live video{display:block;width:100%;height:100%}#viewport.mode-live canvas#overlay{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#viewport.mode-photo canvas#snapshot{display:block;width:100%;height:100%;touch-action:manipulation}.capture-controls{display:none}body.camera-active header,body.camera-active .toolbar,body.camera-active #answersPanel,body.camera-active #status{display:none}body.camera-active #viewport{position:fixed;inset:0;height:100dvh;width:100vw;z-index:20;border-radius:0}body.camera-active .capture-controls{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;gap:12px;justify-content:center;align-items:center;padding:14px 14px max(18px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.83));color:white}body.camera-active .capture-controls button{background:#fff;color:#133760}body.camera-active #capture{border-radius:50%;width:76px;height:76px;flex:none;border:6px solid #ffffff6b;background:white;font-size:13px}body.camera-active #cancelCamera{width:76px;flex:none;background:#24374be0;color:white}body.camera-active #cameraSpacer{width:76px;flex:none}#answersPanel{padding:12px;max-width:980px;margin:0 auto}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.answer{border:1px solid #d1dcec;border-radius:11px;padding:9px 5px;background:white}.answer.missing{background:#fff6ea}.answer .marks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:7px}.answer button.mark{border:1px solid #9baec8;padding:9px 0;min-width:0;border-radius:6px;background:white;color:#183c65;font-size:12px;font-weight:800}.answer button.mark.selected{background:#16477c;color:white;border-color:#16477c}.answer .sum{text-align:center;font-weight:800;font-size:19px;margin-top:7px}.actionrow{display:flex;gap:8px;margin:12px 0}.actionrow>*{flex:1}.assist{font-size:12px;color:#536882;margin:8px 0}@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.answer button.mark{padding:12px 0}#viewport{height:55dvh;min-height:330px}}@media(max-width:350px){.answer button.mark{font-size:11px}}
 </style></head>
 <body>
-<section><h1>Leitor de cartão PSS</h1><div id="student"></div>
-<p>Depois de ler o QR Code, a câmera abre automaticamente. Enquadre as dez colunas, congele a imagem e confira as respostas. Você também pode escolher uma imagem já salva.</p>
-<div class="controls"><button type="button" id="open">Abrir câmera</button><button type="button" id="freeze" disabled>Congelar imagem</button><label class="file">Escolher imagem<input type="file" id="file" accept="image/*"></label></div>
-<div id="status" class="message" role="status">Preparando a câmera…</div></section>
-<section><div class="viewport" id="viewport"><video id="video" autoplay muted playsinline webkit-playsinline></video><canvas id="overlay"></canvas><canvas id="snapshot" width="800" height="600"></canvas></div>
-<small>Verde: marcações reconhecidas. Se necessário, toque nos quadradinhos da imagem congelada ou nos botões 01, 02, 04 e 08 abaixo.</small></section>
-<section><div class="controls"><button type="button" id="analyze" class="secondary">Ler marcações da imagem</button></div>
-<div class="grid" id="answers"></div>
-<p class="message">Toque nas proposições 01, 02, 04 e 08 de cada questão. O somatório é calculado automaticamente (máximo 15).</p>
-<div class="controls"><button type="button" id="send" class="good" disabled>Enviar respostas conferidas</button><button type="button" id="back" class="secondary">Voltar</button></div></section>
+<header><div><h1>Leitor de cartão</h1><div id="student"></div></div><button class="headerback" id="back" type="button">Voltar</button></header>
+<div class="toolbar"><button id="open" type="button">Abrir câmera</button><label for="file" class="filelabel">Escolher imagem<input id="file" type="file" accept="image/*"></label></div>
+<div id="status" class="message" role="status">Preparando câmera…</div>
+<div id="viewport"><video id="video" autoplay muted playsinline webkit-playsinline></video><canvas id="overlay"></canvas><canvas id="snapshot" width="800" height="600"></canvas></div>
+<div class="capture-controls"><button type="button" id="cancelCamera">Voltar</button><button type="button" id="capture">Capturar</button><div id="cameraSpacer"></div></div>
+<section id="answersPanel"><div class="actionrow"><button id="analyze" class="secondary" type="button">Ler marcações</button><button id="retake" class="secondary" type="button">Nova captura</button></div>
+<div id="answers" class="grid"></div><div class="assist">Confira e corrija tocando em 01, 02, 04 ou 08. Sem digitação.</div>
+<div class="actionrow"><button id="send" class="good" type="button" disabled>Usar respostas</button></div></section>
 <script>
 "use strict";
 const params=new URLSearchParams(location.search),turma=params.get('turma')||'',num=Number(params.get('num')),tipo=params.get('tipo')||'';
@@ -53,7 +48,7 @@ function applyRead(values){state.marks=values.slice();renderInputs();}
 function closeCamera(){
  if(state.frame!==null){clearTimeout(state.frame);state.frame=null}
  if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null}
- video.pause();video.srcObject=null;$('freeze').disabled=true;
+ video.pause();video.srcObject=null;
 }
 function dimensions(source){
  const w=source.videoWidth||source.naturalWidth||source.width;
@@ -203,7 +198,7 @@ async function detectFromCanvas(sourceCanvas){
  try{const lib=await loadCv();return readImage(lib,sourceCanvas)}
  finally{state.recognizing=false}
 }
-function showSource(){viewport.classList.toggle('mode-live',!!state.stream);viewport.classList.toggle('mode-photo',state.frozen)}
+function showSource(){viewport.classList.toggle('mode-live',!!state.stream);viewport.classList.toggle('mode-photo',state.frozen);document.body.classList.toggle('camera-active',!!state.stream&&!state.frozen)}
 function liveLoop(){
  if(!state.stream||state.frozen)return;
  const d=dimensions(video);
@@ -231,39 +226,41 @@ async function openCamera(){
   try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}})}
   catch(e){if(['NotFoundError','OverconstrainedError'].includes(e.name))stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});else throw e}
   state.stream=stream;video.srcObject=stream;
-  await video.play();state.frozen=false;showSource();$('freeze').disabled=false;
-  message('Câmera aberta. Enquadre o cartão e toque em Congelar imagem.');
+  await video.play();state.frozen=false;showSource();
+  message('Câmera pronta.');
   liveLoop();
-  // O reconhecimento carrega depois de abrir vídeo, sem bloquear câmera ou botões.
-  loadCv().catch(()=>{if(state.stream)message('Câmera aberta. Se os destaques não aparecerem, congele e preencha os campos.')});
+  // Reconhecimento separado da abertura de câmera.
+  loadCv().catch(()=>{if(state.stream)message('Câmera aberta. Capture para revisar pelas proposições.')});
  }catch(e){
   closeCamera();showSource();
   const msg=e.name==='NotAllowedError'?'Permissão negada. Autorize a câmera para este site.':e.name==='NotReadableError'?'Câmera ocupada por outro aplicativo.':String(e.message||e);
-  message('Não foi possível abrir a câmera: '+msg+'. Escolha uma imagem ou digite as somatórias.');
+  message('Não foi possível abrir a câmera: '+msg+'. Você pode escolher uma imagem.');
  }finally{state.loading=false;$('open').disabled=false}
 }
 $('open').onclick=openCamera;
-$('freeze').onclick=async()=>{
- if(!state.stream)return;
- if(!drawSnapshot(video)){message('A câmera ainda não produziu imagem.');return}
- const frozen=new Image();const ready=new Promise((resolve,reject)=>{frozen.onload=resolve;frozen.onerror=reject});
- frozen.src=snapshot.toDataURL('image/png');
- state.frozen=true;state.source=frozen;closeCamera();showSource();
- try{await ready}catch(e){message('Imagem não disponível. Digite as somatórias.');return}
- state.result=null;
- overlayCtx.clearRect(0,0,overlay.width,overlay.height);
- if(state.cv){
-  try{
-   const found=readImage(state.cv,snapshot);
-   if(!found.error){
-    state.result=found;
-    applyRead(found.results.map(r=>r.valid?r.value:null));
-    drawBoxes(found,true);
-    message('Imagem congelada e lida. Confira as proposições marcadas.');
-   }else message('Imagem congelada. Marque as proposições ou tente Ler marcações da imagem.');
-  }catch(e){message('Imagem congelada. Use os quadradinhos para revisar.')}
- }else message('Imagem congelada. Marque as proposições ou toque em Ler marcações da imagem.');
+$('capture').onclick=async()=>{
+ if(!state.stream||!dimensions(video)){message('A câmera ainda não está pronta.');return}
+ // Capturar imediatamente o quadro atual, sem esperar OpenCV nem conversão por DataURL.
+ try{
+  if(!drawSnapshot(video))throw Error('Não foi possível capturar a imagem.');
+  const frame=document.createElement('canvas');frame.width=snapshot.width;frame.height=snapshot.height;
+  frame.getContext('2d').drawImage(snapshot,0,0);
+  state.source=frame;state.frozen=true;state.result=null;
+  closeCamera();showSource();drawSnapshot(state.source);
+  message('Imagem capturada. Confira as marcações.');
+  if(state.cv){
+   try{const result=readImage(state.cv,snapshot);
+    if(!result.error){state.result=result;applyRead(result.results.map(r=>r.valid?r.value:null));drawBoxes(result,true)}
+    else message('Imagem capturada. Se a leitura falhar, corrija pelas proposições.');
+   }catch(err){message('Imagem capturada. Corrija pelas proposições.')}
+  }else {
+   // A imagem foi capturada; a análise óptica pode carregar depois, sem congelar a tela.
+   loadCv().then(async()=>{$('analyze').click()}).catch(()=>{});
+  }
+ }catch(e){message('Falha na captura: '+String(e.message||e))}
 };
+$('cancelCamera').onclick=()=>{closeCamera();state.frozen=false;showSource();message('Câmera fechada.')};
+$('retake').onclick=()=>openCamera();
 $('file').onchange=async e=>{
  const f=e.target.files?.[0];if(!f)return;
  closeCamera();state.frozen=true;state.result=null;showSource();
