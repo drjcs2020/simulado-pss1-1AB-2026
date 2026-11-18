@@ -105,7 +105,7 @@ function analyzeInWorker(){
  image.height=Math.max(1,Math.round(snapshot.height*factor));
  image.getContext('2d',{willReadFrequently:true}).drawImage(snapshot,0,0,image.width,image.height);
  const payload=image.getContext('2d',{willReadFrequently:true}).getImageData(0,0,image.width,image.height);
- if(!worker)worker=new Worker('omr-worker.js?v=20261118c');
+ if(!worker)worker=new Worker('omr-worker.js?v=20261118d');
  const taskId=++workerSeq;
  state.recognizing=true;
  $('analyze').disabled=true;
@@ -179,7 +179,7 @@ $('capture').onclick=()=>{
   frame.width=snapshot.width;frame.height=snapshot.height;
   frame.getContext('2d').drawImage(snapshot,0,0);
   cancelAnalysis();state.source=frame;
-  state.frozen=true;state.result=null;
+  state.frozen=true;state.result=null;state.marks=Array(10).fill(null);renderInputs();
   closeCamera();showSource();
   drawSnapshot(frame);
   message('Imagem capturada.');
@@ -194,7 +194,7 @@ $('cancelCamera').onclick=()=>{cancelAnalysis();closeCamera();location.href='ind
 $('retake').onclick=()=>openCamera();
 $('file').onchange=async e=>{
  const f=e.target.files&&e.target.files[0];if(!f)return;
- cancelAnalysis();closeCamera();state.frozen=true;state.result=null;showSource();
+ cancelAnalysis();closeCamera();state.frozen=true;state.result=null;state.marks=Array(10).fill(null);renderInputs();showSource();
  const url=URL.createObjectURL(f),img=new Image();
  try{
   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
@@ -209,9 +209,11 @@ $('analyze').onclick=async()=>{
  message('Lendo marcações…');
  try{
   const result=await analyzeInWorker();
-  if(!result||result.error){state.result=null;message('Não foi possível identificar as dez colunas. Corrija tocando nas proposições.');return}
-  state.result=result;applyRead(result.results.map(r=>r.valid?r.value:null));drawBoxes(result,true);
-  message('Confira as respostas identificadas.');
+  if(!result||result.error){state.result=null;message(result&&result.error||'Cartão não identificado. Nenhuma resposta foi zerada.');return}
+  const numbers=result.results.map(r=>r.valid?r.value:null);
+  const found=numbers.filter(n=>n!==null).length;
+  state.result=result;applyRead(numbers);drawBoxes(result,true);
+  message('Respostas identificadas: '+found+'/10. '+(found===10?'Confira antes de enviar.':'Respostas não reconhecidas permanecem em branco, não zeradas.'));
  }catch(err){message(String(err.message||err))}
 };
 snapshot.addEventListener('pointerdown',e=>{
