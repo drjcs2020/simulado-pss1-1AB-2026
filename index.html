@@ -152,10 +152,12 @@
         <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/AKfycbywnUBkGGu2g1iJbeIi5R8JrraF1HpviOXefrPYgHlExudpMqf2uilvBupV8HX4N204_g/exec" style="width:100%;margin-bottom:10px;" />
         <div class="row">
           <button class="btn btn-primary" onclick="saveGasUrl()">Salvar URL</button>
+          <button class="btn btn-primary" onclick="testSheetsConnection()">🧪 Testar Conexão</button>
           <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
           <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Baixar da Planilha</button>
         </div>
         <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
+        <p id="sheetsDiagnostic" style="font-size:13px;color:#b45309;font-weight:700;"></p>
       </div>
     </div>
   </div>
@@ -212,6 +214,8 @@ let currentMarks = [0,0,0,0,0,0,0,0,0,0];
 let db = JSON.parse(localStorage.getItem('pss1_2026_db') || '{"1A":{},"1B":{}}');
 let syncQueue = JSON.parse(localStorage.getItem('pss1_2026_queue') || '[]');
 let gasUrl = localStorage.getItem('pss1_2026_gas_url') || '';
+let sheetsVerified = false;
+let syncInProgress = false;
 let videoStream = null;
 let scanTimer = null;
 
@@ -261,7 +265,8 @@ function init() {
   onTurmaChange();
   importPendingOmr();
   updateSyncBadge();
-  if (navigator.onLine && gasUrl && syncQueue.length > 0) syncWithSheets();
+  if(!gasUrl)setSheetsDiagnostic('Sem Apps Script configurado: salvar registra somente neste navegador.');
+  else testSheetsConnection().then(ok=>{if(ok&&syncQueue.length)syncWithSheets();});
 }
 
 function onTurmaChange() {
@@ -330,7 +335,7 @@ function clearBubbles() {
   renderQuestions();
 }
 
-function saveCurrentStudent() {
+async function saveCurrentStudent() {
   const turma = document.getElementById('selTurma').value;
   const num = Number(document.getElementById('selAluno').value);
   const st = ROSTERS[turma].find(s => s.num === num);
@@ -350,9 +355,8 @@ function saveCurrentStudent() {
   onTurmaChange();
   document.getElementById('selAluno').value = num;
   onAlunoChange();
-  showToast(`Salvo: ${st.name.split(' ')[0]} — Nota ${total.toFixed(2).replace('.',',')}`);
-
-  if (navigator.onLine && gasUrl) syncWithSheets();
+  showToast('Nota ' + total.toFixed(2).replace('.',',') + ' salva no CELULAR. Sincronização pendente.');
+  if (navigator.onLine && gasUrl) await syncWithSheets();
 }
 
 async function toggleCamera() {
@@ -498,68 +502,108 @@ function exportCSV() {
   a.click();
 }
 
-function saveGasUrl() {
-  gasUrl = document.getElementById('gasUrlInput').value.trim();
-  localStorage.setItem('pss1_2026_gas_url', gasUrl);
-  updateSyncBadge();
-  showToast('URL da Planilha salva!');
-}
 
-async function syncWithSheets() {
-  if (!gasUrl) { showToast('Configure a URL do Apps Script primeiro.'); return; }
-  if (syncQueue.length === 0) { showToast('Tudo já está sincronizado!'); return; }
-  try {
-    const res = await fetch(gasUrl, {
-      method: 'POST',
-      body: JSON.stringify({ records: syncQueue })
-    });
-    const json = await res.json();
-    if (json.status === 'ok') {
-      syncQueue = [];
-      localStorage.setItem('pss1_2026_queue', '[]');
-      updateSyncBadge();
-      showToast(`Sincronizado com Google Sheets (${json.updated} registros)!`);
-    }
-  } catch (e) {
-    showToast('Sem conexão no momento — mantido na fila offline.');
+function setSheetsDiagnostic(msg,success=false){
+ const el=document.getElementById('sheetsDiagnostic');
+ if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
+}
+function saveGasUrl(){
+ const value=document.getElementById('gasUrlInput').value.trim();
+ if(value && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(value)){
+  setSheetsDiagnostic('URL inválida. Use o endereço /exec de uma implantação do Google Apps Script.');
+  return;
+ }
+ gasUrl=value;sheetsVerified=false;
+ localStorage.setItem('pss1_2026_gas_url',gasUrl);
+ updateSyncBadge();
+ setSheetsDiagnostic(gasUrl?'URL registrada no navegador; ainda não foi verificada. Clique em Testar Conexão.':'Sem integração configurada: as notas ficam apenas neste navegador.');
+}
+async function testSheetsConnection(){
+ sheetsVerified=false;updateSyncBadge();
+ if(!gasUrl){setSheetsDiagnostic('Não existe URL /exec configurada. É necessário implantar o Code.gs no Apps Script da planilha.');return false;}
+ try{
+  const url=new URL(gasUrl);url.searchParams.set('action','ping');url.searchParams.set('_',String(Date.now()));
+  const res=await fetch(url.toString(),{method:'GET',redirect:'follow',cache:'no-store'});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const value=await res.json();
+  if(value.status!=='ok'||Number(value.version)<2)throw new Error('Backend ausente ou antigo: publique uma implantação nova do Code.gs (versão 2).');
+  sheetsVerified=true;updateSyncBadge();
+  setSheetsDiagnostic('Apps Script respondeu corretamente (v'+value.version+'). Ainda confirme uma gravação real no Sheets.',true);
+  return true;
+ }catch(err){
+  sheetsVerified=false;updateSyncBadge();
+  setSheetsDiagnostic('Não foi possível verificar a ligação com o Google Sheets: '+err.message);
+  return false;
+ }
+}
+async function syncWithSheets(){
+ if(syncInProgress)return false;
+ if(!gasUrl){
+  setSheetsDiagnostic('Nota salva somente neste navegador. Configure o endereço do Apps Script na aba Planilha & Backup.');
+  updateSyncBadge();return false;
+ }
+ if(syncQueue.length===0){updateSyncBadge();setSheetsDiagnostic('Não há correções pendentes de envio.',true);return true;}
+ syncInProgress=true;let ok=0,fail=0;
+ try{
+  // Enviar um registro por vez para que falha parcial nunca descarte outras notas.
+  const pending=[...syncQueue];
+  for(const rec of pending){
+   try{
+    const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[rec]}),redirect:'follow'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const ans=await res.json();
+    const ack=Array.isArray(ans.acknowledged)?ans.acknowledged:[];
+    if(ans.status!=='ok'||Number(ans.version)<2||ack.length!==1||
+       ack[0].turma!==rec.turma||Number(ack[0].num)!==rec.num||
+       Math.abs(Number(ack[0].total)-rec.total)>.011)
+       throw new Error((ans.errors&&ans.errors[0]&&ans.errors[0].message)||ans.message||'Sem confirmação individual válida do servidor');
+    // Somente a correção reconhecida é retirada da fila.
+    syncQueue=syncQueue.filter(r=>!(r.turma===rec.turma&&r.num===rec.num&&r.updatedAt===rec.updatedAt));
+    localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
+    ok++;sheetsVerified=true;
+   }catch(err){fail++;setSheetsDiagnostic('Sincronização falhou: '+err.message+'. Nota preservada no celular.');}
   }
+ }finally{
+  syncInProgress=false;updateSyncBadge();
+  if(fail===0)setSheetsDiagnostic(ok+' registro(s) confirmados pelo Apps Script; confira a planilha.',true);
+  else setSheetsDiagnostic(ok+' enviados, '+fail+' pendentes. Nenhuma nota pendente foi descartada.');
+ }
+ return fail===0;
 }
-
-async function pullFromSheets() {
-  if (!gasUrl) { showToast('Configure a URL do Apps Script primeiro.'); return; }
-  try {
-    const res = await fetch(gasUrl);
-    const json = await res.json();
-    if (json.status === 'ok') {
-      ['1A','1B'].forEach(t => {
-        (json.turmas[t] || []).forEach(row => {
-          if (row.Status === 'Corrigida') {
-            const scores = [1,2,3,4,5,6,7,8,9,10].map(i => Number(row['Q'+String(i).padStart(2,'0')] || 0));
-            const total = Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
-            db[t][Number(row['Nº'])] = {
-              turma: t, num: Number(row['Nº']), name: row.Estudante, type: row.Tipo,
-              marks: db[t][Number(row['Nº'])]?.marks || [0,0,0,0,0,0,0,0,0,0],
-              scores, total, updatedAt: row.Atualizado_Em || ''
-            };
-          }
-        });
-      });
-      localStorage.setItem('pss1_2026_db', JSON.stringify(db));
-      onTurmaChange();
-      showToast('Dados atualizados a partir do Google Sheets!');
-    }
-  } catch (e) {
-    showToast('Erro ao baixar da planilha: ' + e.message);
-  }
+async function pullFromSheets(){
+ if(!gasUrl){setSheetsDiagnostic('Configure a URL do Apps Script antes de baixar os resultados.');return;}
+ try{
+  const u=new URL(gasUrl);u.searchParams.set('action','data');
+  const res=await fetch(u.toString(),{method:'GET',cache:'no-store'});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const json=await res.json();
+  if(json.status!=='ok')throw new Error(json.message||'Resposta inválida.');
+  ['1A','1B'].forEach(t=>{
+   (json.turmas[t]||[]).forEach(row=>{
+    if(row.Status!=='Corrigida')return;
+    const num=Number(row['Nº']),st=ROSTERS[t].find(s=>s.num===num);
+    if(!st||st.type!==row.Tipo)return;
+    const scores=Array.from({length:10},(_,i)=>Number(row['Q'+String(i+1).padStart(2,'0')]||0));
+    if(scores.some(v=>!Number.isFinite(v)||v<0||v>1))return;
+    const total=Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
+    // Nunca substituir uma correção local ainda não sincronizada.
+    if(syncQueue.some(r=>r.turma===t&&r.num===num))return;
+    db[t][num]={turma:t,num,name:st.name,type:st.type,
+      marks:db[t][num]?.marks||Array(10).fill(0),scores,total,updatedAt:String(row.Atualizado_Em||'')};
+   });
+  });
+  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
+  onTurmaChange();setSheetsDiagnostic('Resultados existentes recuperados da planilha.',true);
+ }catch(err){setSheetsDiagnostic('Não foi possível consultar a planilha: '+err.message);}
 }
-
 function updateSyncBadge() {
-  const b = document.getElementById('syncStatusBadge');
-  const q = document.getElementById('queueInfo');
-  b.textContent = syncQueue.length > 0 ? `Fila Offline: ${syncQueue.length}` : (gasUrl ? 'Sheets Conectado' : 'Modo Local');
-  if (q) q.textContent = `Registros pendentes na fila offline: ${syncQueue.length}`;
+ const b=document.getElementById('syncStatusBadge');
+ const q=document.getElementById('queueInfo');
+ b.textContent=syncQueue.length?'PENDENTE: '+syncQueue.length : (sheetsVerified?'Backend verificado':'Nuvem não verificada');
+ b.style.background=syncQueue.length?'#fef3c7':(sheetsVerified?'#dcfce7':'#fee2e2');
+ b.style.color=syncQueue.length?'#92400e':(sheetsVerified?'#166534':'#991b1b');
+ if(q)q.textContent=syncQueue.length+' nota(s) aguardando confirmação da planilha.';
 }
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
