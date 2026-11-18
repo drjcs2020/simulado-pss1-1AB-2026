@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Corretor PSS 1",
+    "slug": "pss1-leitor-nativo",
+    "scheme": "pss1",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "br.edu.padrenicolaubaltazar.pss1",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "ios": {
+      "bundleIdentifier": "br.edu.padrenicolaubaltazar.pss1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "A câmera é utilizada para ler QR Codes e cartões de respostas."
+      }
+    }
+  }
+}
