@@ -79,7 +79,8 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
       bin=Mat.create(0,0,DataTypes.CV_8U);
       OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
       OpenCV.threshold(gray,bin,140,255,ThresholdTypes.THRESH_BINARY_INV);
-      const output=decodeBinary(new Uint8Array(bin.toBuffer('uint8')),PROCESS_WIDTH,PROCESS_HEIGHT);
+      const binary=bin.toBuffer('uint8');
+      const output=decodeBinary(new Uint8Array(binary.buffer),binary.cols,binary.rows);
       const found=output.error?null:output;
       recent.value=found;
       const stable=stableReading(tracker.value,found);
