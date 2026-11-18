@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Alert,ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
 import {Skia,PaintStyle} from '@shopify/react-native-skia';
 import {CodeScanner} from 'react-native-vision-camera-barcode-scanner';
-import {useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
+import {useAsyncRunner,useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
 import {SkiaCamera} from 'react-native-vision-camera-skia';
 import {useResizer,type GPUFrame} from 'react-native-vision-camera-resizer';
 import {Mat,OpenCV,DataTypes,ColorConversionCodes,ThresholdTypes} from 'react-native-fast-opencv';
@@ -34,6 +34,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
  onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];manualChange:(q:number,n:number)=>void;
 }){
  const device=useCameraDevice('back');
+ const asyncRunner=useAsyncRunner();
  const {resizer}=useResizer({width:PROCESS_WIDTH,height:PROCESS_HEIGHT,channelOrder:'bgr',dataType:'uint8',pixelLayout:'interleaved',scaleMode:'contain'});
  const tracker=useSharedValue({signature:'',count:0,emitted:''});
  const recent=useSharedValue<Detection|null>(null);
@@ -45,44 +46,14 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
   <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface"
    onFrame={(frame,render)=>{
     'worklet';
-    const now=Date.now();
-    let found=recent.value;
-    if(now-lastRun.value>=350){
-     lastRun.value=now;
-     let resized:GPUFrame|null=null;
-     let src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
-     try{
-      resized=resizer!.resize(frame) as GPUFrame;
-      const pixels=new Uint8Array(resized.getPixelBuffer());
-      src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
-      gray=Mat.create(0,0,DataTypes.CV_8U);
-      bin=Mat.create(0,0,DataTypes.CV_8U);
-      OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
-      OpenCV.threshold(gray,bin,140,255,ThresholdTypes.THRESH_BINARY_INV);
-      const buffer=bin.toBuffer('uint8');
-      const whiteMarks=decodeBinary(new Uint8Array(buffer),PROCESS_WIDTH,PROCESS_HEIGHT);
-      found=whiteMarks.error?null:whiteMarks;
-      recent.value=found;
-      const stable=stableReading(tracker.value,found);
-      tracker.value={signature:stable.signature,count:stable.count,emitted:tracker.value.emitted};
-      if(stable.stable&&stable.signature!==tracker.value.emitted&&found?.boxes.length===10&&stable.values){
-       tracker.value={signature:stable.signature,count:stable.count,emitted:stable.signature};
-       scheduleOnRN(onStableRN,stable.values,found.boxes);
-      }
-     }catch(error){
-      found=null;recent.value=null;
-      tracker.value={signature:'',count:0,emitted:tracker.value.emitted};
-     }finally{
-      bin?.release();gray?.release();src?.release();resized?.dispose();
-     }
-    }
+    // Renderizar a prévia SEM esperar OpenCV ou o detector das respostas.
+    const latest=recent.value;
     render(({canvas,frameTexture})=>{
      canvas.drawImage(frameTexture,0,0);
-     if(found?.boxes.length!==10)return;
-     // Orientação de câmera e frame conforme exemplo oficial Fast OpenCV + Skia.
+     if(latest?.boxes.length!==10)return;
      const sx=frame.width/PROCESS_HEIGHT,sy=frame.height/PROCESS_WIDTH;
      for(let q=0;q<10;q++){
-      const box=found.boxes[q],values=found.results[q]?.columns;
+      const box=latest.boxes[q],values=latest.results[q]?.columns;
       if(!values)continue;
       for(let col=0;col<2;col++){
        const digit=values[col]?.digit;
@@ -93,7 +64,38 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
       }
      }
     });
-    frame.dispose();
+    // Analisar no máximo 2,8 vezes por segundo; a câmera permanece fluida.
+    const now=Date.now();
+    if(now-lastRun.value<350){frame.dispose();return;}
+    lastRun.value=now;
+    const queued=asyncRunner.runAsync(()=>{
+     'worklet';
+     let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
+     try{
+      resized=resizer!.resize(frame) as GPUFrame;
+      const pixels=new Uint8Array(resized.getPixelBuffer());
+      src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
+      gray=Mat.create(0,0,DataTypes.CV_8U);
+      bin=Mat.create(0,0,DataTypes.CV_8U);
+      OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
+      OpenCV.threshold(gray,bin,140,255,ThresholdTypes.THRESH_BINARY_INV);
+      const output=decodeBinary(new Uint8Array(bin.toBuffer('uint8')),PROCESS_WIDTH,PROCESS_HEIGHT);
+      const found=output.error?null:output;
+      recent.value=found;
+      const stable=stableReading(tracker.value,found);
+      tracker.value={signature:stable.signature,count:stable.count,emitted:tracker.value.emitted};
+      if(stable.stable&&stable.signature!==tracker.value.emitted&&found?.boxes.length===10&&stable.values){
+       tracker.value={signature:stable.signature,count:stable.count,emitted:stable.signature};
+       scheduleOnRN(onStableRN,stable.values,found.boxes);
+      }
+     }catch(e){
+      recent.value=null;
+      tracker.value={signature:'',count:0,emitted:tracker.value.emitted};
+     }finally{
+      bin?.release();gray?.release();src?.release();resized?.dispose();frame.dispose();
+     }
+    });
+    if(!queued)frame.dispose();
    }}/>
   {boxes.length===10&&previewSize.width>0&&<Pressable style={StyleSheet.absoluteFill} onPress={e=>{
     // Mesmo mapeamento de orientação 90° usado na camada Skia.
