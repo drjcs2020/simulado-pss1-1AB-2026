@@ -1,43 +1,138 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Corretor PSS1 · Matemática 2026</title><style>
-:root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#152743;background:#f2f5f9}
-*{box-sizing:border-box}body{margin:0;padding-bottom:26px}header{background:#173b75;color:white;padding:8px 12px}header h1{margin:0;font-size:16px}
-main{max-width:940px;margin:auto;padding:8px}.pane{background:white;border:1px solid #dce3ed;border-radius:12px;padding:10px;margin-bottom:8px}
-nav{display:flex;gap:5px;overflow:auto;margin-bottom:8px}nav button{flex:1;white-space:nowrap}
-button,select,input{font:inherit;padding:10px;border-radius:8px}button{border:0;background:#1e407e;color:#fff;cursor:pointer;font-weight:650}button:disabled{opacity:.55}
-button.secondary{background:#e9eef7;color:#233b5a}button.danger{background:#a44719}button.positive{background:#166e4b}
-button.active{outline:3px solid #8db6fa}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1 1 160px}.hide{display:none!important}
-select,input[type=url]{border:1px solid #a9b8cd;background:white;width:100%;min-width:0}
-#studentMeta{font-size:13px;margin:9px 0;color:#425b73}#connection{font-size:12px;padding:7px 10px;background:#e8eef7;border-radius:7px;margin-top:7px}
-.question{display:flex;gap:7px;align-items:center;justify-content:space-between;padding:9px 5px;border-bottom:1px solid #e4eaf2}
-.question .qname{width:80px;flex-shrink:0;font-weight:700}.question .qname small{display:block;font-weight:400;font-size:10px;color:#586a80}
-.choices{display:flex;gap:5px;flex:1;justify-content:center}
-.choice{border:2px solid #98a9bf;background:white;color:#1d2c47;border-radius:6px;min-width:39px;height:41px;padding:2px 5px;font-size:13px}
-.choice.selected{background:#173b75;color:white;border-color:#173b75}
-.score{width:72px;text-align:right;font-size:13px;font-weight:700}
-.stat{margin:8px 0;padding:8px;background:#eef3fa;border-radius:8px;font-size:13px}
-#message,#resetMsg,#sheetsMessage{font-size:13px;white-space:pre-wrap;color:#415977;line-height:1.5;margin-top:9px}
-table{width:100%;border-collapse:collapse}td,th{font-size:12px;border-bottom:1px solid #e2e8f0;padding:7px;text-align:left}
-.video{width:100%;max-height:280px;background:#000;border-radius:9px}
-.summary{font-size:20px;font-weight:800;color:#183c75}
-@media(max-width:530px){nav button{font-size:11px;padding:9px 5px}.question{gap:4px}.question .qname{width:62px}.choice{min-width:34px;height:38px}.score{width:54px;font-size:12px}}
-</style></head><body>
-<header><h1>Corretor PSS1</h1></header>
-<main><nav><button id="tabCorrect" class="active" type="button">Corrigir</button><button id="tabGrades" type="button">Boletim</button><button id="tabStats" type="button">Estatísticas</button><button id="tabConfig" type="button">Planilha</button></nav>
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Corretor PSS 1 / UEPG — Matemática 2026</title>
+<style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --err: #dc2626;
+      --border: #cbd5e1;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 70px; }
+    header { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+    header p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+    .container { max-width: 820px; margin: 0 auto; padding: 12px; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; }
+    .tab-btn { flex: 1; padding: 10px 8px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    select, input[type="text"], input[type="url"] { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; }
+    .btn { padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-ok { background: var(--ok); color: #fff; }
+    .btn-warn { background: var(--warn); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-A { background: #dbeafe; color: #1e40af; }
+    .badge-B { background: #fef3c7; color: #92400e; }
+    .badge-C { background: #dcfce7; color: #166534; }
+    .badge-sync { background: #e0e7ff; color: #3730a3; }
+    .q-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .q-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+    .q-label { font-weight: 700; font-size: 14px; min-width: 72px; }
+    .q-label small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+    .bubbles { display: flex; gap: 6px; }
+    .bubble { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #94a3b8; background: #fff; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; }
+    .bubble.selected { background: #0f172a; color: #fff; border-color: #0f172a; }
+    .q-score { min-width: 58px; text-align: right; font-weight: 700; font-size: 14px; }
+    video { width: 100%; max-height: 260px; border-radius: 10px; background: #000; object-fit: cover; display: none; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; font-weight: 700; color: var(--muted); }
+    .stat-bar { height: 10px; border-radius: 5px; background: #e2e8f0; overflow: hidden; display: flex; margin-top: 4px; }
+    .bar-ok { background: var(--ok); }
+    .bar-part { background: var(--warn); }
+    .bar-err { background: var(--err); }
+    .hidden { display: none !important; }
+    .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+  </style>
+<style>
+header{position:relative;padding:13px 14px}header h1{font-size:17px}
+header p{font-size:12px;margin-top:3px}.container{padding:10px;max-width:900px}
+.card{padding:12px;margin-bottom:10px}.tabs{gap:5px;margin-bottom:10px}.tab-btn{font-size:12px}
+#qrVideo{display:none;width:100%;height:48dvh;min-height:280px;max-height:530px;object-fit:contain;background:#081522;margin:12px 0 3px;border-radius:12px}
+#qrVideo.active{display:block}#message,#resetMsg,#sheetsMessage{font-size:13px;line-height:1.4;margin-top:7px;color:var(--muted)}
+#connection{font-size:12px;color:var(--muted);margin-bottom:10px}
+.row>*{min-width:0}label[for=group],label[for=student]{font-size:12px;color:var(--muted);font-weight:600}
+select,input[type=url]{max-width:100%;width:100%;box-sizing:border-box}
+#studentMeta{font-size:13px;margin-top:8px;color:var(--muted)}
+.question{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #e2e8f0;background:#f8fafc;padding:9px 8px;border-radius:8px;margin:7px 0}
+.qname{min-width:65px;font-weight:700;font-size:13px}.qname small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.choices{display:flex;gap:5px;flex:1;justify-content:center}.choice{width:39px;height:39px;border-radius:50%;border:2px solid #94a3b8;background:white;color:#17325b;cursor:pointer;padding:0;font-size:12px;font-weight:700}
+.choice.selected{background:#172a4c;color:white;border-color:#172a4c}
+.score{min-width:52px;text-align:right;font-weight:800;font-size:13px}
+.summary{font-size:18px;color:var(--primary);font-weight:800}
+#total{font-variant-numeric:tabular-nums}
+#qrButton,#cardButton{flex:1 1 145px}.btn{touch-action:manipulation}
+#save,#clear,#reset{flex:1 1 120px}
+#gradeTable{width:100%;border-collapse:collapse}#gradeTable td,#gradeTable th{padding:7px 6px;border-bottom:1px solid #e2e8f0}
+#statsOut{display:grid;gap:8px}.stat{border-radius:8px;background:#f1f5f9;padding:10px}
+#tabCorrect,#tabGrades,#tabStats,#tabConfig{cursor:pointer}
+@media(max-width:530px){
+.header{padding:10px}header h1{font-size:15px}header p{font-size:11px}
+.container{padding:8px}.card{padding:10px}.tab-btn{padding:9px 6px;font-size:11px}
+.question{padding:7px 4px;gap:3px}.qname{min-width:52px}.choices{gap:4px}.choice{width:35px;height:35px;font-size:12px}.score{min-width:42px;font-size:12px}
+#qrVideo{height:55dvh;min-height:310px}
+}
+</style></head>
+<body>
+<header><div class="row" style="justify-content:space-between;align-items:center">
+<div><h1>Corretor PSS 1 / UEPG — Matemática 2026</h1><p>Colégio Estadual Padre Nicolau Baltazar</p></div>
+</div></header>
+<div class="container">
+<div class="tabs">
+<button class="tab-btn active" id="tabCorrect" type="button">1. Escanear & Corrigir</button>
+<button class="tab-btn" id="tabGrades" type="button">2. Boletim Turmas</button>
+<button class="tab-btn" id="tabStats" type="button">3. Estatísticas PSS</button>
+<button class="tab-btn" id="tabConfig" type="button">4. Planilha & Backup</button>
+</div>
 <section id="correct">
-<div class="pane"><div class="row"><button id="qrButton" type="button">Ler QR Code</button><button id="cardButton" type="button" class="secondary">Ler cartão</button></div>
-<video id="qrVideo" class="video hide" playsinline autoplay muted></video>
-<div class="row" style="margin-top:12px"><label>Turma<select id="group"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><label>Aluno<select id="student"></select></label></div>
-<div id="studentMeta"></div><div id="message"></div></div>
-<div class="pane"><div class="row"><span class="summary" id="total">0,00 / 10,00</span></div>
+<div class="card">
+<div class="row">
+<button class="btn btn-primary" id="qrButton" type="button">📷 Ler QR Code da Prova</button>
+<button class="btn btn-ok" id="cardButton" type="button">📄 Ler cartão</button>
+</div>
+<video id="qrVideo" muted autoplay playsinline webkit-playsinline></video>
+<div class="row" style="margin-top:10px">
+<label for="group" style="flex:1 1 95px">Turma<select id="group"><option value="1A">1ª Série A (21)</option><option value="1B">1ª Série B (25)</option></select></label>
+<label for="student" style="flex:3 1 200px">Aluno<select id="student"></select></label>
+</div>
+<div id="studentMeta"></div><div id="message" role="status"></div>
+</div>
+<div class="card">
+<div class="row" style="justify-content:space-between">
+<strong>Correção das questões</strong><span class="summary" id="total">0,00 / 10,00</span>
+</div>
 <div id="questions"></div>
-<div class="row" style="margin-top:14px"><button id="save" class="positive">Salvar nota</button><button id="clear" class="secondary">Limpar marcações</button><button id="reset" class="danger">Resetar nota do aluno</button></div>
-<div id="resetMsg"></div></div></section>
-<section id="grades" class="hide"><div class="pane"><div class="row"><label>Turma<select id="gradeGroup"><option value="1A">1º A</option><option value="1B">1º B</option></select></label><button id="refresh">Atualizar planilha</button></div><div style="overflow:auto"><table id="gradeTable"></table></div></div></section>
-<section id="stats" class="hide"><div class="pane"><h3>Resumo de correções</h3><div id="statsOut"></div></div></section>
-<section id="config" class="hide"><div class="pane"><h3>Conexão com Google Sheets</h3><div id="connection">Planilha ainda não verificada</div><p style="font-size:13px">Informe uma vez a URL /exec do Apps Script; ela fica armazenada neste aparelho.</p><input id="gas" type="url" placeholder="https://script.google.com/macros/s/.../exec">
-<div class="row" style="margin-top:10px"><button id="saveUrl">Salvar URL</button><button id="checkUrl" class="secondary">Verificar</button><button id="sync" class="secondary">Sincronizar</button></div>
-<p id="sheetsMessage"></p></div></section>
-</main>
+<div class="row" style="margin-top:12px">
+<button class="btn btn-ok" id="save" type="button">💾 Salvar nota</button>
+<button class="btn btn-outline" id="clear" type="button">Limpar</button>
+<button class="btn btn-warn" id="reset" type="button">Resetar nota do aluno</button>
+</div>
+<div id="resetMsg" role="status"></div>
+</div></section>
+<section id="grades" class="hidden">
+<div class="card"><div class="row" style="justify-content:space-between">
+<label style="flex:1 1 200px">Turma<select id="gradeGroup"><option value="1A">1ª Série A</option><option value="1B">1ª Série B</option></select></label>
+<button class="btn btn-primary" id="refresh" type="button">Atualizar planilha</button>
+</div><div style="overflow-x:auto"><table id="gradeTable"></table></div></div></section>
+<section id="stats" class="hidden"><div class="card"><h3 style="margin-top:0">Estatísticas PSS</h3><div id="statsOut"></div></div></section>
+<section id="config" class="hidden"><div class="card">
+<strong>Google Sheets</strong><div id="connection">Planilha não verificada</div>
+<input id="gas" type="url" placeholder="URL /exec do Apps Script" autocomplete="off">
+<div class="row" style="margin-top:10px"><button class="btn btn-primary" id="saveUrl" type="button">Salvar URL</button><button class="btn btn-outline" id="checkUrl" type="button">Testar conexão</button><button class="btn btn-ok" id="sync" type="button">Sincronizar</button></div>
+<p id="sheetsMessage" role="status"></p>
+</div></section>
+</div>
 <script>
 "use strict";
 const ROSTERS = {
@@ -97,7 +192,7 @@ function getMarks(){return marks.slice()}
 function calculated(t,st,vals){const scores=vals.map((v,i)=>score(v,ANSWER_KEYS[st.type][i]));return {scores,total:Math.round(scores.reduce((a,b)=>a+b,0)*100)/100}}
 function toast(m){$('message').textContent=m}
 function showTab(name){
- currentTab=name;for(const k of ['correct','grades','stats','config']){$(k).classList.toggle('hide',k!==name)}
+ currentTab=name;for(const k of ['correct','grades','stats','config']){$(k).classList.toggle('hidden',k!==name)}
  for(const [id,k] of [['tabCorrect','correct'],['tabGrades','grades'],['tabStats','stats'],['tabConfig','config']])$(id).classList.toggle('active',k===name);
  if(name==='grades')renderGrades();if(name==='stats')renderStats();
 }
@@ -247,7 +342,7 @@ async function openQr(){
  if(!navigator.mediaDevices?.getUserMedia){toast('Este navegador não permite a câmera nesta página. Selecione o aluno pela lista.');return}
  try{
   qrBusy=false;qrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
-  const v=$('qrVideo');v.srcObject=qrStream;v.classList.remove('hide');await v.play();
+  const v=$('qrVideo');v.srcObject=qrStream;v.classList.add('active');await v.play();
   $('qrButton').textContent='Fechar câmera';
   let detector=null,jsqr=null,qrCanvas=null;
   if('BarcodeDetector' in window){
@@ -287,7 +382,7 @@ async function openQr(){
 function closeQr(){
  if(qrTimer!==null){clearInterval(qrTimer);qrTimer=null}
  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null}
- const v=$('qrVideo');v.pause();v.srcObject=null;v.classList.add('hide');$('qrButton').textContent='Ler QR Code';
+ const v=$('qrVideo');v.pause();v.srcObject=null;v.classList.remove('active');$('qrButton').textContent='Ler QR Code';
 }
 function openCard(fromQr=false){
  const {t,n,st}=current();if(!st)return;
@@ -335,4 +430,5 @@ function hook(){
 hook();groupChange();importOmr();renderGrades();renderStats();refreshStatus();
 if(gasUrl)reconcile({notify:false}).then(()=>{if(queue.length)sync()}).catch(()=>{});
 window.addEventListener('pagehide',closeQr);
-</script></body></html>
+</script>
+</body></html>
