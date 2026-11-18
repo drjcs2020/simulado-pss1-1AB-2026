@@ -297,7 +297,7 @@ function onAlunoChange() {
   const saved = db[turma][num];
   const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===num);
   currentMarks = saved ? [...saved.marks] : [0,0,0,0,0,0,0,0,0,0];
-  const status = queued?'Nota local — aguardando confirmação':(saved&&saved.cloudConfirmed?'Corrigida — Google Sheets confirmado':(saved?'Nota salva somente neste aparelho':'Pendente — sem correção'));
+  const status = saved&&saved.cloudConflict?'DIVERGÊNCIA: nota local '+Number(saved.total).toFixed(2).replace('.',',')+' / Sheets '+Number(saved.cloudConflict.total).toFixed(2).replace('.',','):(queued?'Nota local — aguardando confirmação':(saved&&saved.cloudConfirmed?'Corrigida — Google Sheets confirmado':(saved?'Nota salva somente neste aparelho':'Pendente — sem correção')));
   document.getElementById('studentMeta').innerHTML =
     `QR Code: <strong>PSS1|${turma}|${String(num).padStart(2,'0')}|${st.type}</strong> • Caderno: <span class="badge badge-${st.type}">TIPO ${st.type}</span> • <strong>${status}</strong>`;
   renderQuestions();
@@ -437,7 +437,7 @@ function renderBoletim() {
   ROSTERS[turma].forEach(st => {
     const rec = db[turma][st.num];
     const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===st.num);
-    const status = queued?'Aguardando confirmação':(rec&&rec.cloudConfirmed?'Corrigida (Sheets)':(rec?'Corrigida no aparelho':'Pendente'));
+    const status = rec&&rec.cloudConflict?'DIVERGÊNCIA — revisar nota':(queued?'Aguardando confirmação':(rec&&rec.cloudConfirmed?'Corrigida (Sheets)':(rec?'Corrigida no aparelho':'Pendente')));
     const nota = rec ? rec.total.toFixed(2).replace('.',',') : '—';
     html += `<tr><td>${String(st.num).padStart(2,'0')}</td><td>${st.name}</td><td><span class="badge badge-${st.type}">${st.type}</span></td><td>${status}</td><td><strong>${nota}</strong></td></tr>`;
   });
@@ -569,7 +569,11 @@ async function pullFromSheets(){
     const scores=scoreFromSheet(row);
     if(!scores)return;
     const pending=syncQueue.find(r=>r.turma===t&&Number(r.num)===num);
-    if(pending&&!matchesServer(pending,row)){conflicts++;return;}
+    if(pending&&!matchesServer(pending,row)){
+      const remoteScores=scoreFromSheet(row);
+      if(db[t][num]&&remoteScores)db[t][num].cloudConflict={total:Number(remoteScores.reduce((a,b)=>a+b,0).toFixed(2)),checkedAt:Date.now()};
+      conflicts++;return;
+    }
     if(pending&&matchesServer(pending,row)){
       syncQueue=syncQueue.filter(r=>!(r.turma===t&&Number(r.num)===num));
       confirmed++;
@@ -631,6 +635,8 @@ async function syncWithSheets(){
     saved++;continue;
    }
    if(existing&&existing.Status==='Corrigida'&&!matchesServer(item,existing)){
+    const serverScores=scoreFromSheet(existing);
+    if(db[item.turma]&&db[item.turma][item.num]&&serverScores)db[item.turma][item.num].cloudConflict={total:Number(serverScores.reduce((a,b)=>a+b,0).toFixed(2)),checkedAt:Date.now()};
     conflicts++;continue; // Nunca sobrescrever resultado diferente sem decisão do professor.
    }
    try{
