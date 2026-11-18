@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,ActivityIndicator,Dimensions,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
+import {Alert,ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
 import {Skia,PaintStyle} from '@shopify/react-native-skia';
 import {CodeScanner} from 'react-native-vision-camera-barcode-scanner';
 import {useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
@@ -29,18 +29,19 @@ function Bubble({label,active,onPress}:{label:string,active:boolean,onPress:()=>
 function Button({label,onPress,kind='primary',disabled=false}:{label:string,onPress:()=>void,kind?:'primary'|'green'|'light'|'orange',disabled?:boolean}){
  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,styles[kind],disabled&&{opacity:.45}]}><Text style={[styles.buttonText,kind==='light'&&{color:'#1b3554'}]}>{label}</Text></Pressable>;
 }
-function LiveCamera({onStable,onExit,onReview,manual,manualChange}:{
+function LiveCamera({onStable,onExit,onReview,manual,boxes,manualChange}:{
  onStable:(values:number[],boxes:CardBox[])=>void;
- onExit:()=>void;onReview:()=>void;manual:Mark[];manualChange:(q:number,n:number)=>void;
+ onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];manualChange:(q:number,n:number)=>void;
 }){
  const device=useCameraDevice('back');
  const {resizer}=useResizer({width:PROCESS_WIDTH,height:PROCESS_HEIGHT,channelOrder:'bgr',dataType:'uint8',pixelLayout:'interleaved',scaleMode:'contain'});
  const tracker=useSharedValue({signature:'',count:0,emitted:''});
  const recent=useSharedValue<Detection|null>(null);
  const lastRun=useSharedValue(0);
+ const [previewSize,setPreviewSize]=useState({width:0,height:0});
  const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
  if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
- return <View style={styles.fullScreen}>
+ return <View style={styles.fullScreen} onLayout={e=>setPreviewSize({width:e.nativeEvent.layout.width,height:e.nativeEvent.layout.height})}>
   <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface"
    onFrame={(frame,render)=>{
     'worklet';
@@ -94,6 +95,21 @@ function LiveCamera({onStable,onExit,onReview,manual,manualChange}:{
     });
     frame.dispose();
    }}/>
+  {boxes.length===10&&previewSize.width>0&&<Pressable style={StyleSheet.absoluteFill} onPress={e=>{
+    // Mesmo mapeamento de orientação 90° usado na camada Skia.
+    const x=e.nativeEvent.locationX,y=e.nativeEvent.locationY;
+    const px=(y/previewSize.height)*PROCESS_WIDTH,py=(1-x/previewSize.width)*PROCESS_HEIGHT;
+    for(let q=0;q<10;q++){
+      const b=boxes[q];
+      if(px<b.x||px>b.x+b.w||py<b.y||py>b.y+b.h)continue;
+      const digit=Math.round(((py-b.y)/b.h-.149)/.0855),tens=(px-b.x)/b.w<.5;
+      if(digit<0||digit>9||(tens&&digit>1))return;
+      const prev=manual[q]??0;
+      const value=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
+      if(value<=15)manualChange(q,value);
+      return;
+    }
+   }}/>}
   <View style={styles.cameraTop} pointerEvents="box-none">
     <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
     <View style={styles.liveBadge}><Text style={styles.whiteText}>● LEITURA AO VIVO</Text></View>
@@ -122,7 +138,7 @@ export default function App(){
  const chooseGroup=(newGroup:ClassId)=>{setGroup(newGroup);setStudentNumber(ROSTERS[newGroup][0].num);setMarks(Array(10).fill(null));edited.current.clear();setStatus('');setIsStable(false)};
  const chooseStudent=(n:number)=>{setStudentNumber(n);setMarks(Array(10).fill(null));edited.current.clear();setIsStable(false);setStatus('')};
  const enterQR=()=>{setStatus('');setMode('qr')};
- const enterOMR=()=>{edited.current.clear();setIsStable(false);setStatus('');setMode('omr')};
+ const enterOMR=()=>{edited.current.clear();setLastBoxes([]);setIsStable(false);setStatus('');setMode('omr')};
  const stableCallback=useCallback((values:number[],boxes:CardBox[])=>{
   Vibration.vibrate(75);
   setLastBoxes(boxes);
@@ -140,7 +156,7 @@ export default function App(){
  const confirmSave=()=>{
   if(marks.some(v=>v===null)){Alert.alert('Respostas incompletas','Confira as dez questões primeiro.');return}
   Alert.alert('Confirmar nota',student.name+' — '+format(grade(marks,student.type).total)+' pontos',[
-   {text:'Cancelar',style:'cancelled'}, {text:'Salvar',onPress:async()=>{
+   {text:'Cancelar',style:'cancel'}, {text:'Salvar',onPress:async()=>{
     setBusy(true);
     try{const total=await saveGrade(endpoint,group,student,marks);setStatus('Nota '+format(total)+' confirmada no Google Sheets.');}
     catch(e:any){setStatus('Gravação não confirmada: '+(e.message||String(e)))}
@@ -161,7 +177,7 @@ export default function App(){
    <View style={styles.cameraTop}><Button label="✕ Sair" onPress={()=>setMode('none')}/></View>
    <View style={styles.cameraBottom}><Text style={styles.whiteText}>{status||'Aponte para o QR Code do aluno'}</Text></View>
   </View>;
- if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks}
+ if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes}
     manualChange={(q,n)=>{edited.current.add(q);setMarks(m=>m.map((v,i)=>i===q?n:v))}}/>;
  return <View style={styles.main}>
   <View style={styles.header}><Text style={styles.appName}>{APP_TITLE}</Text><Text style={styles.school}>{SCHOOL}</Text></View>
