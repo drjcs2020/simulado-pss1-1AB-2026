@@ -99,7 +99,7 @@
         </div>
         <div id="studentMeta" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-warn" onclick="resetCorrections('student')">🗑️ Excluir lançamento / Resetar nota deste aluno</button>
+          <button class="btn btn-warn" onclick="resetCorrections('student')">🗑️ Resetar nota do aluno</button>
           <span style="font-size:12px;color:var(--muted)">A correção deste aluno volta a Pendente no aplicativo e no Google Sheets.</span>
         </div>
         <p id="resetInfo" style="font-size:13px;color:#9a3412;margin-top:8px" aria-live="polite"></p>
@@ -115,14 +115,7 @@
           <button class="btn btn-ok" style="flex:2;" onclick="saveCurrentStudent()">💾 Salvar & Sincronizar Nota</button>
           <button class="btn btn-outline" style="flex:1;" onclick="clearBubbles()">Limpar</button>
         </div>
-        <details style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px">
-          <summary style="font-weight:600;cursor:pointer">🧹 Reiniciar correções de teste (turma ou todas)</summary>
-          <p style="font-size:12px;color:var(--muted)">Apaga os lançamentos de teste e deixa os alunos como Pendentes, preservando provas, QR Codes, nomes e fórmulas. Exige confirmação.</p>
-          <div class="row">
-            <button class="btn btn-warn" onclick="resetCorrections('class')">Resetar turma selecionada</button>
-            <button class="btn btn-warn" onclick="resetCorrections('all')">Resetar todos os 46 alunos</button>
-          </div>
-        </details>
+
       </div>
     </div>
 
@@ -548,57 +541,45 @@ function setSheetsDiagnostic(msg,success=false){
 
 let resetting=false;
 async function resetCorrections(scope){
- if(resetting||syncInProgress){showToast('Aguarde a operação atual terminar.');return;}
+ if(scope!=='student')return;
+ if(resetting||syncInProgress){showToast('Aguarde a sincronização terminar.');return;}
  const turma=document.getElementById('selTurma').value;
  const num=Number(document.getElementById('selAluno').value);
- const student=ROSTERS[turma].find(s=>s.num===num);
+ const student=(ROSTERS[turma]||[]).find(st=>st.num===num);
  const info=document.getElementById('resetInfo');
- let expected='',description='';
- if(scope==='student'){
-  if(!student){info.textContent='Selecione um aluno primeiro.';return;}
-  expected='RESETAR '+turma+' '+num;
-  description=student.name+' ('+turma+', nº '+num+')';
- }else if(scope==='class'){
-  expected='RESETAR '+turma;
-  description='TODAS as correções da turma '+turma;
- }else if(scope==='all'){
-  expected='RESETAR TODAS';description='TODAS as 46 correções das turmas 1A e 1B';
- }else return;
- const answer=prompt('Isto apagará '+description+' no aplicativo e no Google Sheets. Não afeta as provas nem os dados dos alunos.\n\nPara confirmar, digite exatamente:\n'+expected);
- if(answer!==expected){info.textContent='Reset cancelado. Nenhuma correção foi apagada.';return;}
- const pin=prompt('Informe o PIN administrativo de reset (configurado em PSS_RESET_PIN no Apps Script).');
- if(!pin){info.textContent='Reset cancelado: PIN não informado.';return;}
- if(!gasUrl){info.textContent='Reset não realizado: configure a URL do Apps Script para não deixar o celular diferente da planilha.';return;}
+ if(!student){info.textContent='Selecione um aluno.';return;}
+ if(!confirm('Resetar a nota de '+student.name+' ('+turma+', nº '+num+')?\n\nA correção será apagada no aplicativo e no Google Sheets.'))return;
+ if(!gasUrl){info.textContent='Configure a URL do Apps Script para apagar a nota no celular e na planilha.';return;}
  resetting=true;
- info.textContent='Verificando compatibilidade do Apps Script antes de apagar…';
+ info.textContent='Excluindo lançamento do aluno…';
  try{
-  const ping=await fetch(new URL(gasUrl).toString()+'?action=ping&_='+Date.now(),{cache:'no-store'});
-  if(!ping.ok)throw Error('Falha HTTP '+ping.status);
+  const u=new URL(gasUrl);u.searchParams.set('action','ping');u.searchParams.set('_',String(Date.now()));
+  const ping=await fetch(u.toString(),{cache:'no-store'});
+  if(!ping.ok)throw Error('Falha na conexão: HTTP '+ping.status);
   const version=await ping.json();
-  if(version.status!=='ok'||Number(version.version)<3)throw Error('O Apps Script ainda é antigo. Atualize e implante o Code.gs v3 para habilitar o reset na planilha.');
-  const payload={action:'reset',scope,turma,num,confirmation:expected,resetPin:pin};
-  const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
-  if(!response.ok)throw Error('Erro de gravação HTTP '+response.status);
-  const result=await response.json();
-  if(result.status!=='ok'||result.action!=='reset'||Number(result.version)<3||!Array.isArray(result.reset))
-    throw Error(result.message||'A planilha não confirmou o reset.');
-  const ids=result.reset;
-  // Limpar apenas registros explicitamente reconhecidos pelo servidor.
-  for(const id of ids){
-   if(db[id.turma])delete db[id.turma][Number(id.num)];
-  }
-  syncQueue=syncQueue.filter(r=>!ids.some(id=>id.turma===r.turma&&Number(id.num)===Number(r.num)));
+  if(version.status!=='ok'||Number(version.version)<4)
+   throw Error('O Apps Script precisa estar implantado na versão 4 para permitir a exclusão na planilha.');
+  const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({action:'reset',scope:'student',turma,num,confirmed:true}),redirect:'follow'});
+  if(!res.ok)throw Error('Falha no reset: HTTP '+res.status);
+  const data=await res.json();
+  if(data.status!=='ok'||data.action!=='reset'||Number(data.version)<4||
+     !Array.isArray(data.reset)||data.reset.length!==1||
+     data.reset[0].turma!==turma||Number(data.reset[0].num)!==num)
+   throw Error(data.message||'O servidor não confirmou a exclusão deste aluno.');
+  delete db[turma][num];
+  syncQueue=syncQueue.filter(rec=>!(rec.turma===turma&&Number(rec.num)===num));
   localStorage.setItem('pss1_2026_db',JSON.stringify(db));
   localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
   localStorage.removeItem('pss1_omr_pending');
   updateSyncBadge();
   onTurmaChange();
-  renderBoletim();
-  renderStats();
-  info.textContent='Reset confirmado na planilha: '+ids.length+' aluno(s). Status agora Pendente. Você pode testar novamente e recomeçar do zero.';
-  showToast('Reset concluído: '+ids.length+' aluno(s).');
- }catch(error){
-  info.textContent='Reset não confirmado: '+String(error.message||error)+'. Não limpei as notas locais. Confira a planilha antes de tentar novamente.';
+  document.getElementById('selAluno').value=String(num);
+  onAlunoChange();
+  renderBoletim();renderStats();
+  info.textContent='Nota excluída. Aluno voltou para Pendente no aplicativo e no Google Sheets.';
+  showToast('Nota resetada: '+student.name.split(' ')[0]);
+ }catch(err){
+  info.textContent='A exclusão não foi confirmada. Nenhuma nota local foi apagada. '+String(err.message||err);
  }finally{resetting=false;}
 }
 function saveGasUrl(){
