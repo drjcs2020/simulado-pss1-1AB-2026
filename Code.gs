@@ -90,6 +90,9 @@ function resetCorrections_(payload){
  var turma=String(payload.turma||'');
  var num=Number(payload.num);
  var confirmation=String(payload.confirmation||'');
+ // A URL do Web App pode ser pública; não permitir reset sem senha de administração.
+ var resetPin=PropertiesService.getScriptProperties().getProperty('PSS_RESET_PIN');
+ if(!resetPin||String(payload.resetPin||'')!==resetPin)throw new Error('PIN de reset inválido ou não configurado nas propriedades do Apps Script.');
  if(!['student','class','all'].includes(scope))throw new Error('Escopo de reset inválido.');
  if(scope==='student'&&(!['1A','1B'].includes(turma)||!Number.isInteger(num)||num<=0||confirmation!=='RESETAR '+turma+' '+num))
    throw new Error('Confirmação de reset do estudante inválida.');
