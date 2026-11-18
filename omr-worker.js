@@ -13,53 +13,55 @@ function decode(data){
   for(let x=0;x<w;x++){
    const yy=Math.round(y+slope*(x-w/2));
    if(yy<1||yy>=h-1)continue;
-   // Um pixel de tolerância vertical para lidar com a borda inclinada.
    const pixel=dark[yy*w+x]||dark[(yy-1)*w+x]||dark[(yy+1)*w+x];
    if(pixel){
     if(start===-1){start=x;last=x}
-    else if(x-last<=3)last=x;
-    else {if(last-start+1>=w*.035)out.push({x:start,end:last,w:last-start+1});start=x;last=x}
+    else if(x-last<=Math.max(2,Math.round(w*.004)))last=x;
+    else {if(last-start+1>=Math.max(7,w*.013))out.push({x:start,end:last,w:last-start+1});start=x;last=x}
    }
   }
-  if(start!==-1&&last-start+1>=w*.035)out.push({x:start,end:last,w:last-start+1});
+  if(start!==-1&&last-start+1>=Math.max(7,w*.013))out.push({x:start,end:last,w:last-start+1});
   return out;
  }
  const candidates=[];
- // Buscar a inclinação da faixa superior; não exige que o celular esteja reto.
- for(let si=-13;si<=13;si++){
+ for(let si=-16;si<=16;si++){
   const slope=si/100;
-  for(let y=Math.floor(h*.25);y<Math.floor(h*.87);y++){
+  for(let y=Math.floor(h*.09);y<Math.floor(h*.95);y++){
    const runs=bands(y,slope);
    if(runs.length!==10)continue;
    const widths=runs.map(r=>r.w).sort((a,b)=>a-b),median=widths[5];
-   if(median<w*.035||median>w*.15||widths[0]<median*.67||widths[9]>median*1.38)continue;
+   if(median<Math.max(7,w*.013)||median>w*.16||widths[0]<median*.68||widths[9]>median*1.4)continue;
    const gaps=runs.slice(1).map((r,i)=>r.x-runs[i].x),avg=gaps.reduce((a,b)=>a+b,0)/9;
-   if(avg<=median||gaps.some(g=>Math.abs(g-avg)>avg*.26))continue;
-   candidates.push({y,runs,slope,score:runs.reduce((a,b)=>a+b.w,0)});
+   if(avg<median*.94||gaps.some(g=>Math.abs(g-avg)>avg*.28))continue;
+   candidates.push({y,runs,slope,median,score:runs.reduce((a,b)=>a+b.w,0)});
   }
  }
- if(!candidates.length)return {error:"Não encontrei as dez colunas. Reenquadre o cartão, com as bordas visíveis.",boxes:[],results:[]};
- const top=candidates.sort((a,b)=>b.score-a.score)[0];
- let lower=0;
- for(let y=top.y+Math.floor(h*.18);y<Math.min(h,top.y+Math.floor(h*.72));y++){
-  let hits=0;
-  for(const r of top.runs){
-   const cy=Math.round(y+top.slope*(r.x-w/2));
-   if(cy<0||cy>=h)continue;
-   for(let dx=-1;dx<=1;dx++){
-    const x=r.x+dx;if(x>=0&&x<w&&dark[cy*w+x]){hits++;break}
+ if(!candidates.length)return {error:"As dez colunas não foram localizadas na foto.",boxes:[],results:[]};
+ candidates.sort((a,b)=>b.score-a.score);
+ let top=null,lower=0;
+ // Aceita o tamanho real do cartão na foto. A altura esperada é proporcional
+ // à largura das caixas (aprox. 3,6 vezes), não à altura da tela.
+ for(const c of candidates.slice(0,160)){
+  const from=Math.max(c.y+Math.round(c.median*2.6),c.y+18);
+  const to=Math.min(h-1,c.y+Math.round(c.median*5.1));
+  let bestY=0,bestScore=0;
+  for(let y=from;y<=to;y++){
+   let lined=0,well=0;
+   for(const r of c.runs){
+    let hits=0,n=0;
+    for(let x=r.x+2;x<=r.end-2;x++){
+     const yy=Math.round(y+c.slope*(x-w/2));
+     if(yy>=0&&yy<h){n++;hits+=dark[yy*w+x]}
+    }
+    const ratio=n?hits/n:0;
+    lined+=ratio;if(ratio>.60)well++;
    }
+   const score=lined/10;
+   if(well>=8&&score>.73&&score>bestScore){bestScore=score;bestY=y}
   }
-  if(hits>=7){
-   let count=0;
-   for(let x=top.runs[0].x;x<=top.runs[9].end;x++){
-    const yy=Math.round(y+top.slope*(x-w/2));
-    if(yy>=0&&yy<h)count+=dark[yy*w+x];
-   }
-   if(count>w*.43)lower=y;
-  }
+  if(bestY&&(!top||c.score>top.score)){top=c;lower=bestY}
  }
- if(!lower||lower-top.y<h*.14)return {error:"Não localizei a borda inferior das respostas.",boxes:[],results:[]};
+ if(!top)return {error:"As bordas do cartão não foram identificadas. Aproxime e enquadre as dez colunas.",boxes:[],results:[]};
  const height=lower-top.y;
  const boxes=top.runs.map(r=>{
   const y=top.y+top.slope*(r.x-w/2);
