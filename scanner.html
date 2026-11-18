@@ -265,10 +265,9 @@ $('capture').onclick=()=>{
   const frame=document.createElement('canvas');
   frame.width=snapshot.width;frame.height=snapshot.height;
   frame.getContext('2d').drawImage(snapshot,0,0);
-  const previous=state.liveResults;
   cancelAnalysis();state.source=frame;
   state.frozen=true;state.result=null;renderInputs();
-  if(previous?.boxes?.length===10){state.result=previous;drawSnapshot(frame);drawBoxes(previous,true)}
+  // Respostas são mantidas; coordenadas do vídeo não são reutilizadas na foto maior.
   state.scanSession++;closeCamera();showSource();
   drawSnapshot(frame);
   message('Imagem capturada.');
