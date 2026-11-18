@@ -356,7 +356,7 @@ async function saveCurrentStudent() {
   document.getElementById('selAluno').value = num;
   onAlunoChange();
   showToast('Nota ' + total.toFixed(2).replace('.',',') + ' salva no CELULAR. Sincronização pendente.');
-  if (navigator.onLine && gasUrl) await syncWithSheets();
+  if (navigator.onLine && gasUrl && sheetsVerified) await syncWithSheets();
 }
 
 async function toggleCamera() {
@@ -538,6 +538,10 @@ async function testSheetsConnection(){
 }
 async function syncWithSheets(){
  if(syncInProgress)return false;
+ if(!sheetsVerified){
+  setSheetsDiagnostic('Envio suspenso: a implantação do Apps Script ainda não passou no teste de conexão v2. Nenhuma nota será reenviada ao serviço antigo.');
+  updateSyncBadge();return false;
+ }
  if(!gasUrl){
   setSheetsDiagnostic('Nota salva somente neste navegador. Configure o endereço do Apps Script na aba Planilha & Backup.');
   updateSyncBadge();return false;
