@@ -154,7 +154,7 @@
           <button class="btn btn-primary" onclick="saveGasUrl()">Salvar URL</button>
           <button class="btn btn-primary" onclick="testSheetsConnection()">🧪 Testar Conexão</button>
           <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
-          <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Baixar da Planilha</button>
+          <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Atualizar status da planilha</button>
         </div>
         <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
         <p id="sheetsDiagnostic" style="font-size:13px;color:#b45309;font-weight:700;"></p>
@@ -215,6 +215,8 @@ let db = JSON.parse(localStorage.getItem('pss1_2026_db') || '{"1A":{},"1B":{}}')
 let syncQueue = JSON.parse(localStorage.getItem('pss1_2026_queue') || '[]');
 let gasUrl = localStorage.getItem('pss1_2026_gas_url') || '';
 let sheetsVerified = false;
+let sheetsVersion = 0;
+let lastRemoteCheck = 0;
 let syncInProgress = false;
 let videoStream = null;
 let scanTimer = null;
@@ -266,7 +268,12 @@ function init() {
   importPendingOmr();
   updateSyncBadge();
   if(!gasUrl)setSheetsDiagnostic('Sem Apps Script configurado: salvar registra somente neste navegador.');
-  else testSheetsConnection().then(ok=>{if(ok&&syncQueue.length)syncWithSheets();});
+  else testSheetsConnection().then(async ok=>{
+    if(ok){
+      await pullFromSheets();
+      if(syncQueue.length)await syncWithSheets();
+    }
+  });
 }
 
 function onTurmaChange() {
@@ -288,9 +295,11 @@ function onAlunoChange() {
   const num = Number(document.getElementById('selAluno').value);
   const st = ROSTERS[turma].find(s => s.num === num);
   const saved = db[turma][num];
+  const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===num);
   currentMarks = saved ? [...saved.marks] : [0,0,0,0,0,0,0,0,0,0];
+  const status = queued?'Nota local — aguardando confirmação':(saved&&saved.cloudConfirmed?'Corrigida — Google Sheets confirmado':(saved?'Nota salva somente neste aparelho':'Pendente — sem correção'));
   document.getElementById('studentMeta').innerHTML =
-    `QR Code: <strong>PSS1|${turma}|${String(num).padStart(2,'0')}|${st.type}</strong> • Caderno: <span class="badge badge-${st.type}">TIPO ${st.type}</span>`;
+    `QR Code: <strong>PSS1|${turma}|${String(num).padStart(2,'0')}|${st.type}</strong> • Caderno: <span class="badge badge-${st.type}">TIPO ${st.type}</span> • <strong>${status}</strong>`;
   renderQuestions();
 }
 
@@ -344,7 +353,7 @@ async function saveCurrentStudent() {
   const total = Number(scores.reduce((a,b) => a+b, 0).toFixed(2));
   const updatedAt = new Date().toLocaleString('pt-BR');
 
-  const record = { turma, num, name: st.name, type: st.type, marks: [...currentMarks], scores, total, updatedAt };
+  const record = { turma, num, name: st.name, type: st.type, marks: [...currentMarks], scores, total, updatedAt, cloudConfirmed:false };
   db[turma][num] = record;
   localStorage.setItem('pss1_2026_db', JSON.stringify(db));
 
@@ -427,7 +436,8 @@ function renderBoletim() {
   let html = '<thead><tr><th>Nº</th><th>Estudante</th><th>Tipo</th><th>Status</th><th>Nota</th></tr></thead><tbody>';
   ROSTERS[turma].forEach(st => {
     const rec = db[turma][st.num];
-    const status = rec ? 'Corrigida' : 'Pendente';
+    const queued=syncQueue.some(r=>r.turma===turma&&Number(r.num)===st.num);
+    const status = queued?'Aguardando confirmação':(rec&&rec.cloudConfirmed?'Corrigida (Sheets)':(rec?'Corrigida no aparelho':'Pendente'));
     const nota = rec ? rec.total.toFixed(2).replace('.',',') : '—';
     html += `<tr><td>${String(st.num).padStart(2,'0')}</td><td>${st.name}</td><td><span class="badge badge-${st.type}">${st.type}</span></td><td>${status}</td><td><strong>${nota}</strong></td></tr>`;
   });
@@ -507,106 +517,159 @@ function setSheetsDiagnostic(msg,success=false){
  const el=document.getElementById('sheetsDiagnostic');
  if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
 }
+
+function setSheetsDiagnostic(msg,success=false){
+ const el=document.getElementById('sheetsDiagnostic');
+ if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
+}
 function saveGasUrl(){
  const value=document.getElementById('gasUrlInput').value.trim();
  if(value && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(value)){
-  setSheetsDiagnostic('URL inválida. Use o endereço /exec de uma implantação do Google Apps Script.');
-  return;
+  setSheetsDiagnostic('URL inválida. Use o endereço /exec do Apps Script.');return;
  }
- gasUrl=value;sheetsVerified=false;
- localStorage.setItem('pss1_2026_gas_url',gasUrl);
- updateSyncBadge();
- setSheetsDiagnostic(gasUrl?'URL registrada no navegador; ainda não foi verificada. Clique em Testar Conexão.':'Sem integração configurada: as notas ficam apenas neste navegador.');
+ gasUrl=value;sheetsVerified=false;sheetsVersion=0;
+ localStorage.setItem('pss1_2026_gas_url',gasUrl);updateSyncBadge();
+ setSheetsDiagnostic(gasUrl?'URL salva. Clique em Testar Conexão para confirmar o acesso.':'Sem conexão configurada.');
+}
+async function remoteRead(){
+ if(!gasUrl)throw Error('URL do Apps Script não configurada.');
+ const u=new URL(gasUrl);
+ u.searchParams.set('action','data');u.searchParams.set('_',String(Date.now()));
+ const resp=await fetch(u.toString(),{method:'GET',cache:'no-store',redirect:'follow'});
+ if(!resp.ok)throw Error('HTTP '+resp.status);
+ const data=await resp.json();
+ if(data.status!=='ok'||!data.turmas||!Array.isArray(data.turmas['1A'])||!Array.isArray(data.turmas['1B']))
+  throw Error(data.message||'O Apps Script não retornou as turmas 1A e 1B.');
+ return data;
+}
+function scoreFromSheet(row){
+ const scores=Array.from({length:10},(_,q)=>{
+  const raw=row['Q'+String(q+1).padStart(2,'0')];
+  const v=typeof raw==='number'?raw:Number(String(raw??'').replace(',','.'));
+  return v;
+ });
+ if(scores.some(v=>!Number.isFinite(v)||v<0||v>1))return null;
+ return scores;
+}
+function matchesServer(local,row){
+ if(!local||!row||row.Status!=='Corrigida')return false;
+ const scores=scoreFromSheet(row);
+ if(!scores)return false;
+ return local.scores.length===10&&local.scores.every((v,i)=>Math.abs(v-scores[i])<.011);
+}
+async function pullFromSheets(){
+ if(!gasUrl){setSheetsDiagnostic('Configure a URL do Apps Script.');return false;}
+ try{
+  const data=await remoteRead();let confirmed=0,imported=0,conflicts=0;
+  ['1A','1B'].forEach(t=>{
+   (data.turmas[t]||[]).forEach(row=>{
+    if(row.Status!=='Corrigida')return;
+    const num=Number(row['Nº']),st=ROSTERS[t].find(v=>v.num===num);
+    if(!st||st.type!==row.Tipo)return;
+    const scores=scoreFromSheet(row);
+    if(!scores)return;
+    const pending=syncQueue.find(r=>r.turma===t&&Number(r.num)===num);
+    if(pending&&!matchesServer(pending,row)){conflicts++;return;}
+    if(pending&&matchesServer(pending,row)){
+      syncQueue=syncQueue.filter(r=>!(r.turma===t&&Number(r.num)===num));
+      confirmed++;
+    }
+    const local=db[t][num],total=Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
+    db[t][num]={
+      turma:t,num,name:st.name,type:st.type,
+      marks:(local&&Array.isArray(local.marks)?local.marks:Array(10).fill(0)),
+      scores,total,updatedAt:String(row.Atualizado_Em||''),cloudConfirmed:true
+    };
+    imported++;
+   });
+  });
+  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
+  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
+  lastRemoteCheck=Date.now();sheetsVerified=true;sheetsVersion=Number(data.version)||1;
+  updateSyncBadge();onTurmaChange();
+  const active=document.querySelector('.tab-btn.active');
+  if(active&&active.textContent.includes('Boletim'))renderBoletim();
+  if(active&&active.textContent.includes('Estatísticas'))renderStats();
+  setSheetsDiagnostic('Planilha consultada: '+imported+' corrigida(s), '+confirmed+' fila(s) confirmada(s)'+(conflicts?', '+conflicts+' divergência(s) preservada(s) no celular.':'.'),conflicts===0);
+  return true;
+ }catch(err){
+  setSheetsDiagnostic('Erro ao atualizar o status pela planilha: '+err.message);
+  return false;
+ }
 }
 async function testSheetsConnection(){
  sheetsVerified=false;updateSyncBadge();
- if(!gasUrl){setSheetsDiagnostic('Não existe URL /exec configurada. É necessário implantar o Code.gs no Apps Script da planilha.');return false;}
+ if(!gasUrl){setSheetsDiagnostic('Configure a URL /exec do Apps Script.');return false;}
  try{
-  const url=new URL(gasUrl);url.searchParams.set('action','ping');url.searchParams.set('_',String(Date.now()));
-  const res=await fetch(url.toString(),{method:'GET',redirect:'follow',cache:'no-store'});
-  if(!res.ok)throw new Error('HTTP '+res.status);
-  const value=await res.json();
-  if(value.status!=='ok'||Number(value.version)<2)throw new Error('Backend ausente ou antigo: publique uma implantação nova do Code.gs (versão 2).');
-  sheetsVerified=true;updateSyncBadge();
-  setSheetsDiagnostic('Apps Script respondeu corretamente (v'+value.version+'). Ainda confirme uma gravação real no Sheets.',true);
+  const data=await remoteRead();
+  sheetsVerified=true;sheetsVersion=Number(data.version)||1;lastRemoteCheck=Date.now();
+  updateSyncBadge();
+  setSheetsDiagnostic(sheetsVersion>=2?'Conexão verificada com o Apps Script v2.':'Conexão verificada com Apps Script anterior. A gravação será confirmada por releitura da planilha.',true);
   return true;
  }catch(err){
   sheetsVerified=false;updateSyncBadge();
-  setSheetsDiagnostic('Não foi possível verificar a ligação com o Google Sheets: '+err.message);
+  setSheetsDiagnostic('Não consegui consultar a planilha: '+err.message);
   return false;
  }
 }
 async function syncWithSheets(){
  if(syncInProgress)return false;
- if(!sheetsVerified){
-  setSheetsDiagnostic('Envio suspenso: a implantação do Apps Script ainda não passou no teste de conexão v2. Nenhuma nota será reenviada ao serviço antigo.');
-  updateSyncBadge();return false;
- }
- if(!gasUrl){
-  setSheetsDiagnostic('Nota salva somente neste navegador. Configure o endereço do Apps Script na aba Planilha & Backup.');
-  updateSyncBadge();return false;
- }
- if(syncQueue.length===0){updateSyncBadge();setSheetsDiagnostic('Não há correções pendentes de envio.',true);return true;}
- syncInProgress=true;let ok=0,fail=0;
+ if(!gasUrl){setSheetsDiagnostic('Nota salva no celular. Falta configurar a URL do Apps Script.');return false;}
+ if(!sheetsVerified){if(!await testSheetsConnection())return false;}
+ if(!syncQueue.length){updateSyncBadge();return true;}
+ syncInProgress=true;
+ let saved=0,unconfirmed=0,conflicts=0;
  try{
-  // Enviar um registro por vez para que falha parcial nunca descarte outras notas.
-  const pending=[...syncQueue];
-  for(const rec of pending){
+  // Primeiro consultar o Sheets: uma nota já gravada não pode ser reenviada por engano.
+  let remote=await remoteRead();
+  for(const item of [...syncQueue]){
+   const rows=remote.turmas[item.turma]||[];
+   const existing=rows.find(r=>Number(r['Nº'])===Number(item.num));
+   if(existing&&existing.Status==='Corrigida'&&matchesServer(item,existing)){
+    syncQueue=syncQueue.filter(r=>!(r.turma===item.turma&&Number(r.num)===Number(item.num)));
+    if(db[item.turma]&&db[item.turma][item.num])db[item.turma][item.num].cloudConfirmed=true;
+    saved++;continue;
+   }
+   if(existing&&existing.Status==='Corrigida'&&!matchesServer(item,existing)){
+    conflicts++;continue; // Nunca sobrescrever resultado diferente sem decisão do professor.
+   }
    try{
-    const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[rec]}),redirect:'follow'});
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const ans=await res.json();
-    const ack=Array.isArray(ans.acknowledged)?ans.acknowledged:[];
-    if(ans.status!=='ok'||Number(ans.version)<2||ack.length!==1||
-       ack[0].turma!==rec.turma||Number(ack[0].num)!==rec.num||
-       Math.abs(Number(ack[0].total)-rec.total)>.011)
-       throw new Error((ans.errors&&ans.errors[0]&&ans.errors[0].message)||ans.message||'Sem confirmação individual válida do servidor');
-    // Somente a correção reconhecida é retirada da fila.
-    syncQueue=syncQueue.filter(r=>!(r.turma===rec.turma&&r.num===rec.num&&r.updatedAt===rec.updatedAt));
-    localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
-    ok++;sheetsVerified=true;
-   }catch(err){fail++;setSheetsDiagnostic('Sincronização falhou: '+err.message+'. Nota preservada no celular.');}
+    const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[item]}),redirect:'follow'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const json=await response.json();
+    if(json.status==='error'||json.status==='partial')throw Error(json.message||JSON.stringify(json.errors||'Erro no backend'));
+    if(sheetsVersion>=2){
+      const ack=Array.isArray(json.acknowledged)?json.acknowledged:[];
+      if(!ack.some(a=>a.turma===item.turma&&Number(a.num)===Number(item.num)))
+        throw Error('Servidor não confirmou a gravação individual.');
+    }else if(json.status!=='ok')throw Error('Apps Script não confirmou o recebimento.');
+    // Releitura independente é a confirmação definitiva, inclusive no backend legado.
+    remote=await remoteRead();
+    const check=(remote.turmas[item.turma]||[]).find(r=>Number(r['Nº'])===Number(item.num));
+    if(!matchesServer(item,check))throw Error('Servidor respondeu, mas a planilha não contém a mesma pontuação.');
+    syncQueue=syncQueue.filter(r=>!(r.turma===item.turma&&Number(r.num)===Number(item.num)));
+    if(db[item.turma]&&db[item.turma][item.num])db[item.turma][item.num].cloudConfirmed=true;
+    saved++;
+   }catch(err){unconfirmed++;setSheetsDiagnostic('Nota mantida no celular: '+err.message);}
   }
- }finally{
-  syncInProgress=false;updateSyncBadge();
-  if(fail===0)setSheetsDiagnostic(ok+' registro(s) confirmados pelo Apps Script; confira a planilha.',true);
-  else setSheetsDiagnostic(ok+' enviados, '+fail+' pendentes. Nenhuma nota pendente foi descartada.');
- }
- return fail===0;
-}
-async function pullFromSheets(){
- if(!gasUrl){setSheetsDiagnostic('Configure a URL do Apps Script antes de baixar os resultados.');return;}
- try{
-  const u=new URL(gasUrl);u.searchParams.set('action','data');
-  const res=await fetch(u.toString(),{method:'GET',cache:'no-store'});
-  if(!res.ok)throw new Error('HTTP '+res.status);
-  const json=await res.json();
-  if(json.status!=='ok')throw new Error(json.message||'Resposta inválida.');
-  ['1A','1B'].forEach(t=>{
-   (json.turmas[t]||[]).forEach(row=>{
-    if(row.Status!=='Corrigida')return;
-    const num=Number(row['Nº']),st=ROSTERS[t].find(s=>s.num===num);
-    if(!st||st.type!==row.Tipo)return;
-    const scores=Array.from({length:10},(_,i)=>Number(row['Q'+String(i+1).padStart(2,'0')]||0));
-    if(scores.some(v=>!Number.isFinite(v)||v<0||v>1))return;
-    const total=Number(scores.reduce((a,b)=>a+b,0).toFixed(2));
-    // Nunca substituir uma correção local ainda não sincronizada.
-    if(syncQueue.some(r=>r.turma===t&&r.num===num))return;
-    db[t][num]={turma:t,num,name:st.name,type:st.type,
-      marks:db[t][num]?.marks||Array(10).fill(0),scores,total,updatedAt:String(row.Atualizado_Em||'')};
-   });
-  });
+  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
   localStorage.setItem('pss1_2026_db',JSON.stringify(db));
-  onTurmaChange();setSheetsDiagnostic('Resultados existentes recuperados da planilha.',true);
- }catch(err){setSheetsDiagnostic('Não foi possível consultar a planilha: '+err.message);}
+  updateSyncBadge();onTurmaChange();
+  if(saved)showToast(saved+' nota(s) confirmada(s) no Google Sheets.');
+  setSheetsDiagnostic(saved+' nota(s) confirmada(s); '+unconfirmed+' ainda sem confirmação'+(conflicts?'; '+conflicts+' divergência(s) aguardando conferência.':'.'),unconfirmed===0&&conflicts===0);
+  return unconfirmed===0&&conflicts===0;
+ }catch(err){
+  setSheetsDiagnostic('Falha de sincronização: '+err.message+'. Registros locais preservados.');
+  return false;
+ }finally{syncInProgress=false;updateSyncBadge();}
 }
 function updateSyncBadge() {
- const b=document.getElementById('syncStatusBadge');
- const q=document.getElementById('queueInfo');
- b.textContent=syncQueue.length?'PENDENTE: '+syncQueue.length : (sheetsVerified?'Backend verificado':'Nuvem não verificada');
- b.style.background=syncQueue.length?'#fef3c7':(sheetsVerified?'#dcfce7':'#fee2e2');
- b.style.color=syncQueue.length?'#92400e':(sheetsVerified?'#166534':'#991b1b');
- if(q)q.textContent=syncQueue.length+' nota(s) aguardando confirmação da planilha.';
+ const b=document.getElementById('syncStatusBadge'),q=document.getElementById('queueInfo');
+ const amount=syncQueue.length;
+ b.textContent=amount?'Aguardando confirmação: '+amount:(sheetsVerified?'Planilha acessível':'Planilha não verificada');
+ b.style.background=amount?'#fef3c7':(sheetsVerified?'#dcfce7':'#fee2e2');
+ b.style.color=amount?'#92400e':(sheetsVerified?'#166534':'#991b1b');
+ if(q)q.textContent=amount+' nota(s) locais pendentes. Atualize o status para conferir os registros que já estão no Sheets.';
 }
 function showToast(msg) {
   const t = document.getElementById('toast');
