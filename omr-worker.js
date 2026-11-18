@@ -8,11 +8,14 @@ function decode(data){
  for(let i=0,j=0;i<rgba.length;i+=4,j++){
   dark[j]=rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114<140?1:0;
  }
- function bands(y){
-  const out=[],offset=y*w;
-  let start=-1,last=-1;
+ function bands(y,slope){
+  const out=[];let start=-1,last=-1;
   for(let x=0;x<w;x++){
-   if(dark[offset+x]){
+   const yy=Math.round(y+slope*(x-w/2));
+   if(yy<1||yy>=h-1)continue;
+   // Um pixel de tolerância vertical para lidar com a borda inclinada.
+   const pixel=dark[yy*w+x]||dark[(yy-1)*w+x]||dark[(yy+1)*w+x];
+   if(pixel){
     if(start===-1){start=x;last=x}
     else if(x-last<=3)last=x;
     else {if(last-start+1>=w*.035)out.push({x:start,end:last,w:last-start+1});start=x;last=x}
@@ -21,40 +24,50 @@ function decode(data){
   if(start!==-1&&last-start+1>=w*.035)out.push({x:start,end:last,w:last-start+1});
   return out;
  }
- // Procurar a linha horizontal superior das dez caixas; ignora título e QR.
  const candidates=[];
- for(let y=Math.floor(h*.25);y<Math.floor(h*.87);y++){
-  const runs=bands(y);
-  if(runs.length!==10)continue;
-  const widths=runs.map(r=>r.w).sort((a,b)=>a-b);
-  const median=widths[5];
-  if(median<w*.035||median>w*.15||widths[0]<median*.67||widths[9]>median*1.38)continue;
-  const gaps=runs.slice(1).map((r,i)=>r.x-runs[i].x),avg=gaps.reduce((a,b)=>a+b,0)/9;
-  if(avg<=median||gaps.some(g=>Math.abs(g-avg)>avg*.26))continue;
-  candidates.push({y,runs,avg,score:runs.reduce((a,b)=>a+b.w,0)});
+ // Buscar a inclinação da faixa superior; não exige que o celular esteja reto.
+ for(let si=-13;si<=13;si++){
+  const slope=si/100;
+  for(let y=Math.floor(h*.25);y<Math.floor(h*.87);y++){
+   const runs=bands(y,slope);
+   if(runs.length!==10)continue;
+   const widths=runs.map(r=>r.w).sort((a,b)=>a-b),median=widths[5];
+   if(median<w*.035||median>w*.15||widths[0]<median*.67||widths[9]>median*1.38)continue;
+   const gaps=runs.slice(1).map((r,i)=>r.x-runs[i].x),avg=gaps.reduce((a,b)=>a+b,0)/9;
+   if(avg<=median||gaps.some(g=>Math.abs(g-avg)>avg*.26))continue;
+   candidates.push({y,runs,slope,score:runs.reduce((a,b)=>a+b.w,0)});
+  }
  }
- if(!candidates.length)return {error:"Não encontrei as dez colunas do cartão. Confira o enquadramento.",boxes:[],results:[]};
+ if(!candidates.length)return {error:"Não encontrei as dez colunas. Reenquadre o cartão, com as bordas visíveis.",boxes:[],results:[]};
  const top=candidates.sort((a,b)=>b.score-a.score)[0];
- // Detectar borda inferior percorrendo o lado esquerdo das dez caixas.
- let lower=0,maxHits=0;
+ let lower=0;
  for(let y=top.y+Math.floor(h*.18);y<Math.min(h,top.y+Math.floor(h*.72));y++){
   let hits=0;
   for(const r of top.runs){
-   // O limite externo das caixas é preto até a borda inferior.
+   const cy=Math.round(y+top.slope*(r.x-w/2));
+   if(cy<0||cy>=h)continue;
    for(let dx=-1;dx<=1;dx++){
-    const x=r.x+dx;if(x>=0&&x<w&&dark[y*w+x]){hits++;break}
+    const x=r.x+dx;if(x>=0&&x<w&&dark[cy*w+x]){hits++;break}
    }
   }
   if(hits>=7){
-   // O candidato inferior forma uma linha longa, não só os lados.
-   let count=0;const offset=y*w;
-   for(let x=top.runs[0].x;x<=top.runs[9].end;x++)count+=dark[offset+x];
-   if(count>w*.43){lower=y;maxHits=hits}
+   let count=0;
+   for(let x=top.runs[0].x;x<=top.runs[9].end;x++){
+    const yy=Math.round(y+top.slope*(x-w/2));
+    if(yy>=0&&yy<h)count+=dark[yy*w+x];
+   }
+   if(count>w*.43)lower=y;
   }
  }
- if(!lower||lower-top.y<h*.14)return {error:"Não localizei a parte inferior do cartão.",boxes:[],results:[]};
+ if(!lower||lower-top.y<h*.14)return {error:"Não localizei a borda inferior das respostas.",boxes:[],results:[]};
  const height=lower-top.y;
- const boxes=top.runs.map(r=>({x:r.x,y:top.y,w:r.w,h:height}));
+ const boxes=top.runs.map(r=>{
+  const y=top.y+top.slope*(r.x-w/2);
+  return {x:r.x,y,w:r.w,h:height,quad:[
+   {x:r.x,y},{x:r.end,y:y+top.slope*(r.end-r.x)},
+   {x:r.end,y:y+top.slope*(r.end-r.x)+height},{x:r.x,y:y+height}
+  ]};
+ });
  function density(cx,cy,rx,ry){
   let total=0,num=0;
   for(let yy=Math.max(0,Math.round(cy-ry));yy<=Math.min(h-1,Math.round(cy+ry));yy++)
@@ -68,7 +81,9 @@ function decode(data){
   for(const [fraction,count] of [[.329,2],[.673,10]]){
    const scores=[];
    for(let d=0;d<count;d++){
-    const fill=density(b.x+b.w*fraction,b.y+b.h*(.149+.0855*d),Math.max(2,b.w*.055),Math.max(2,b.h*.016));
+    const cx=b.x+b.w*fraction;
+    const cy=b.y+top.slope*(cx-b.x)+b.h*(.149+.0855*d);
+    const fill=density(cx,cy,Math.max(2,b.w*.055),Math.max(2,b.h*.016));
     scores.push({digit:d,value:fill});
    }
    scores.sort((a,b)=>b.value-a.value);
