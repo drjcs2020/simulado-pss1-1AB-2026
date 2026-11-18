@@ -157,6 +157,16 @@
           <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
           <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Atualizar status da planilha</button>
         </div>
+        <div style="border-top:1px solid #e2e8f0;margin-top:18px;padding-top:14px;">
+          <strong>🧹 Resetar correções de teste</strong>
+          <p style="font-size:13px;color:var(--muted);">Zera as correções no aplicativo e na planilha, sem excluir alunos, QR Codes, provas ou fórmulas. Use antes de aplicar a prova de verdade.</p>
+          <div class="row">
+            <button class="btn btn-outline" onclick="resetCorrections('student')">Resetar aluno selecionado</button>
+            <button class="btn btn-warn" onclick="resetCorrections('class')">Resetar turma selecionada</button>
+            <button class="btn btn-warn" onclick="resetCorrections('all')">Resetar todos os 46 alunos</button>
+          </div>
+          <p class="state" id="resetInfo" style="font-size:13px;color:#9a3412;margin:8px 0 0"></p>
+        </div>
         <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
         <p id="sheetsDiagnostic" style="font-size:13px;color:#b45309;font-weight:700;"></p>
       </div>
@@ -531,6 +541,60 @@ function setSheetsDiagnostic(msg,success=false){
 function setSheetsDiagnostic(msg,success=false){
  const el=document.getElementById('sheetsDiagnostic');
  if(el){el.textContent=msg;el.style.color=success?'#166534':'#b45309';}
+}
+
+let resetting=false;
+async function resetCorrections(scope){
+ if(resetting||syncInProgress){showToast('Aguarde a operação atual terminar.');return;}
+ const turma=document.getElementById('selTurma').value;
+ const num=Number(document.getElementById('selAluno').value);
+ const student=ROSTERS[turma].find(s=>s.num===num);
+ const info=document.getElementById('resetInfo');
+ let expected='',description='';
+ if(scope==='student'){
+  if(!student){info.textContent='Selecione um aluno primeiro.';return;}
+  expected='RESETAR '+turma+' '+num;
+  description=student.name+' ('+turma+', nº '+num+')';
+ }else if(scope==='class'){
+  expected='RESETAR '+turma;
+  description='TODAS as correções da turma '+turma;
+ }else if(scope==='all'){
+  expected='RESETAR TODAS';description='TODAS as 46 correções das turmas 1A e 1B';
+ }else return;
+ const answer=prompt('Isto apagará '+description+' no aplicativo e no Google Sheets. Não afeta as provas nem os dados dos alunos.\n\nPara confirmar, digite exatamente:\n'+expected);
+ if(answer!==expected){info.textContent='Reset cancelado. Nenhuma correção foi apagada.';return;}
+ if(!gasUrl){info.textContent='Reset não realizado: configure a URL do Apps Script para não deixar o celular diferente da planilha.';return;}
+ resetting=true;
+ info.textContent='Verificando compatibilidade do Apps Script antes de apagar…';
+ try{
+  const ping=await fetch(new URL(gasUrl).toString()+'?action=ping&_='+Date.now(),{cache:'no-store'});
+  if(!ping.ok)throw Error('Falha HTTP '+ping.status);
+  const version=await ping.json();
+  if(version.status!=='ok'||Number(version.version)<3)throw Error('O Apps Script ainda é antigo. Atualize e implante o Code.gs v3 para habilitar o reset na planilha.');
+  const payload={action:'reset',scope,turma,num,confirmation:expected};
+  const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
+  if(!response.ok)throw Error('Erro de gravação HTTP '+response.status);
+  const result=await response.json();
+  if(result.status!=='ok'||result.action!=='reset'||Number(result.version)<3||!Array.isArray(result.reset))
+    throw Error(result.message||'A planilha não confirmou o reset.');
+  const ids=result.reset;
+  // Limpar apenas registros explicitamente reconhecidos pelo servidor.
+  for(const id of ids){
+   if(db[id.turma])delete db[id.turma][Number(id.num)];
+  }
+  syncQueue=syncQueue.filter(r=>!ids.some(id=>id.turma===r.turma&&Number(id.num)===Number(r.num)));
+  localStorage.setItem('pss1_2026_db',JSON.stringify(db));
+  localStorage.setItem('pss1_2026_queue',JSON.stringify(syncQueue));
+  localStorage.removeItem('pss1_omr_pending');
+  updateSyncBadge();
+  onTurmaChange();
+  renderBoletim();
+  renderStats();
+  info.textContent='Reset confirmado na planilha: '+ids.length+' aluno(s). Status agora Pendente. Você pode testar novamente e recomeçar do zero.';
+  showToast('Reset concluído: '+ids.length+' aluno(s).');
+ }catch(error){
+  info.textContent='Reset não confirmado: '+String(error.message||error)+'. Não limpei as notas locais. Confira a planilha antes de tentar novamente.';
+ }finally{resetting=false;}
 }
 function saveGasUrl(){
  const value=document.getElementById('gasUrlInput').value.trim();
