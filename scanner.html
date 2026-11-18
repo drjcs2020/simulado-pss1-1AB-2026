@@ -1,168 +1,204 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>Fotografe o cartão inteiro, incluindo as dez colunas, de frente e com boa luz. Clique em <strong>Ler 20 dígitos</strong>. O leitor encontra os contornos dos quadradinhos automaticamente, sem tocar na tela. Confira os resultados antes de enviar.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="autoModo">Automático (sem pontos)</button><button id="manualModo">Manual (4 pontos)</button><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leitura óptica PSS — dezenas e unidades</title><style>body{font:16px system-ui;background:#f1f5f9;color:#16243c;max-width:850px;margin:auto;padding:14px}section{background:white;padding:15px;border-radius:12px;margin-bottom:12px}button,input{font:inherit;padding:9px;border-radius:7px}button{background:#1e40af;color:white;border:0;margin:5px}canvas{width:100%;height:auto;touch-action:manipulation;border:1px solid #bbb}table{border-collapse:collapse;width:100%}td,th{padding:6px;border-bottom:1px solid #ddd}select{font:inherit}.warn{color:#a33}small{color:#536174}</style></head><body><h2>Leitor óptico PSS — cartão numérico</h2><section><strong id="aluno"></strong><p>O aplicativo tenta alinhar os <strong>quatro cantos externos da grade</strong> automaticamente. Se precisar, use <strong>Ajustar quatro cantos</strong>: toque nos cantos da área das 10 colunas (não nos quadradinhos de resposta), na ordem indicada. Depois clique em <strong>Ler 20 dígitos</strong>.</p><input type="file" id="foto" accept="image/*" capture="environment"><button id="autoModo">Automático (sem pontos)</button><button id="manualModo">Manual (4 pontos)</button><button id="recomecar">Refazer pontos</button><div id="estado">Selecione uma fotografia.</div></section><section><canvas id="cv"></canvas></section><section><button id="analisar">Ler 20 dígitos</button><div id="resultado"></div><button id="enviar" disabled>Enviar para correção (sem salvar nota)</button></section><script>
 const qs=new URLSearchParams(location.search), turma=qs.get('turma'),num=Number(qs.get('num')),tipo=qs.get('tipo');
 document.getElementById('aluno').textContent='Turma '+(turma||'?')+' · Nº '+(num||'?')+' · Tipo '+(tipo||'?');
 const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null,autoMode=true;
 
 
-function draw(){
- if(img)cx.drawImage(img,0,0,c.width,c.height);
-}
-foto.onchange=()=>{
- const f=foto.files[0];if(!f)return;
- const url=URL.createObjectURL(f),i=new Image();
- i.onload=()=>{
-  const scale=Math.min(1,1800/i.width);
-  c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);
-  img=i;answers=null;resultado.innerHTML='';
-  document.getElementById('enviar').disabled=true;
-  draw();estado.textContent='Imagem carregada. Toque em Ler 20 dígitos.';
-  URL.revokeObjectURL(url);
- };
- i.src=url;
-};
-document.getElementById('autoModo').style.display='none';
-document.getElementById('manualModo').style.display='none';
-document.getElementById('recomecar').textContent='Reanalisar foto';
-document.getElementById('recomecar').onclick=()=>{answers=null;resultado.innerHTML='';document.getElementById('enviar').disabled=true;draw();estado.textContent='Toque em Ler 20 dígitos.';};
-function groupNumbers(values,gap){
- const gs=[];let g=[];
- for(const v of values){
-  if(g.length && v-g[g.length-1]>gap){gs.push(g);g=[];}
-  g.push(v);
- }
- if(g.length)gs.push(g);
- return gs.map(a=>a.reduce((s,n)=>s+n,0)/a.length);
-}
 
-function decode(){
- if(!img)throw Error('Selecione a imagem do cartão primeiro.');
- draw();
- const w=c.width,h=c.height,rgba=cx.getImageData(0,0,w,h).data;
- if(w<450||h<450)throw Error('Imagem pequena demais para a leitura.');
- const dark=new Uint8Array(w*h);
- for(let p=0,k=0;p<dark.length;p++,k+=4)
-   dark[p]=(rgba[k]*.299+rgba[k+1]*.587+rgba[k+2]*.114)<125?1:0;
- // A borda de cada bloco é uma linha vertical longa. O detector antigo
- // descartava toda a imagem quando 1 ou 2 das 20 linhas não eram percebidas.
- // Agora a periodicidade das 10 colunas permite interpolar bordas ausentes.
- const yStart=Math.floor(h*.44),yEnd=Math.floor(h*.97);
- const sumX=new Uint32Array(w);
- for(let y=yStart;y<yEnd;y++)for(let x=0;x<w;x++)sumX[x]+=dark[y*w+x];
- let maximum=0;
- for(const z of sumX)if(z>maximum)maximum=z;
- const strong=[];
- for(let x=0;x<w;x++)if(sumX[x]>=maximum*.70)strong.push(x);
- const peaks=groupNumbers(strong,Math.max(3,Math.round(w*.002)));
- if(peaks.length<12)throw Error('Não consegui localizar as dez colunas. Deixe a área das respostas inteira na foto.');
- const left=peaks[0],right=peaks[peaks.length-1],span=right-left;
- const smallGaps=[];
- for(let i=1;i<peaks.length;i++){
-   const gap=peaks[i]-peaks[i-1];
-   if(gap<span/40 && gap>span/300)smallGaps.push(gap);
- }
- smallGaps.sort((a,b)=>a-b);
- if(!smallGaps.length)throw Error('Não consegui estabelecer a largura das colunas.');
- const gap=smallGaps[Math.floor(smallGaps.length/2)];
- const pitch=(span+gap)/10;
- const boxes=Array.from({length:10},(_,q)=>[left+q*pitch,left+q*pitch+pitch-gap]);
- if(pitch<25||boxes.some(([a,b])=>a<0||b>w))throw Error('A imagem não contém o bloco completo das respostas.');
- // Encontrar a borda superior/inferior real na primeira coluna, permitindo
- // pequenos espaços causados pelo antialiasing da imagem ou pela câmera.
- const probeX=Math.max(0,Math.min(w-1,Math.round(left)));
- let bestStart=-1,bestEnd=-1,currentStart=-1,lastDark=-1;
- for(let y=0;y<h;y++){
-   if(dark[y*w+probeX]){
-     if(currentStart<0)currentStart=y;
-     lastDark=y;
-   }else if(currentStart>=0 && y-lastDark>2){
-     if(lastDark-currentStart>bestEnd-bestStart){bestStart=currentStart;bestEnd=lastDark;}
-     currentStart=-1;
-   }
- }
- if(currentStart>=0&&lastDark-currentStart>bestEnd-bestStart){bestStart=currentStart;bestEnd=lastDark;}
- if(bestStart<0||bestEnd-bestStart<h*.12)throw Error('Não consegui localizar a altura das colunas.');
- const gridHeight=bestEnd-bestStart;
- const bandStart=Math.max(0,Math.floor(bestStart+gridHeight*.04));
- const bandEnd=Math.min(h,Math.ceil(bestEnd-gridHeight*.02));
- // Os 20 traços horizontais (topo e base dos dez dígitos) se repetem
- // nas 10 colunas. Encontrá-los evita qualquer ajuste manual no celular.
- const bars=[];
- for(let y=bandStart;y<bandEnd;y++){
-   let count=0;
-   for(const [a,b] of boxes){
-     const wd=b-a;
-     for(const frac of [.30,.67]){
-       const xc=Math.round(a+frac*wd);
-       const rad=Math.max(2,Math.round(wd*.09));
-       for(let x=Math.max(0,xc-rad);x<=Math.min(w-1,xc+rad);x++)count+=dark[y*w+x];
-     }
-   }
-   bars.push(count);
- }
- const barMax=Math.max(...bars),levels=[.55,.50,.45,.60,.40];
- let horizontal=[];
- for(const level of levels){
-   const ys=[];
-   for(let i=0;i<bars.length;i++)if(bars[i]>barMax*level)ys.push(i+bandStart);
-   horizontal=groupNumbers(ys,Math.max(2,Math.round(h*.001)));
-   if(horizontal.length===20)break;
- }
- if(horizontal.length!==20)throw Error('Não foi possível identificar os quadradinhos das respostas. Centralize somente a área das dez colunas.');
- const rows=Array.from({length:10},(_,d)=>(horizontal[2*d]+horizontal[2*d+1])/2);
- const heightCell=horizontal[1]-horizontal[0];
- function density(x,y,rx,ry){
-   let black=0,total=0;
-   for(let yy=Math.max(0,Math.round(y-ry));yy<=Math.min(h-1,Math.round(y+ry));yy++)
-     for(let xx=Math.max(0,Math.round(x-rx));xx<=Math.min(w-1,Math.round(x+rx));xx++){
-       black+=dark[yy*w+xx];total++;
-     }
-   return total?black/total:0;
- }
- const result=[];
- for(let q=0;q<10;q++){
-   const [a,b]=boxes[q],wd=b-a;
-   const columns=[];
-   for(const [frac,limit] of [[.30,2],[.67,10]]){
-     const x=a+frac*wd;
-     const scores=Array.from({length:limit},(_,d)=>density(x,rows[d],Math.max(2,wd*.07),Math.max(2,heightCell*.26)));
-     const sorted=scores.map((value,digit)=>({value,digit})).sort((v,z)=>z.value-v.value);
-     columns.push({digit:sorted[0].digit,value:sorted[0].value,margin:sorted[0].value-sorted[1].value,x});
-   }
-   const value=10*columns[0].digit+columns[1].digit;
-   const reliable=value<=15&&columns.every(v=>v.value>.65&&v.margin>.35);
-   result.push({value,parsed:columns,reliable});
- }
- draw();
- cx.lineWidth=Math.max(2,w/650);
- for(let q=0;q<10;q++){
-   for(let d=0;d<2;d++){
-     const z=result[q].parsed[d],y=rows[z.digit],radius=Math.max(3,(boxes[q][1]-boxes[q][0])*.055);
-     cx.strokeStyle=result[q].reliable?'#15803d':'#dc2626';
-     cx.strokeRect(z.x-radius,y-radius,2*radius,2*radius);
-   }
- }
- return result;
+let cornerMode='auto',corners=[],imagePixels=null;
+const cornerNames=['superior esquerdo','superior direito','inferior direito','inferior esquerdo'];
+document.getElementById('autoModo').style.display='';
+document.getElementById('manualModo').style.display='';
+document.getElementById('autoModo').textContent='Alinhar automaticamente';
+document.getElementById('manualModo').textContent='Ajustar quatro cantos';
+document.getElementById('recomecar').textContent='Recomeçar';
+function readPixels(){
+ cx.drawImage(img,0,0,c.width,c.height);
+ imagePixels=cx.getImageData(0,0,c.width,c.height);
 }
-document.getElementById('analisar').onclick=()=>{
- let out;
- try{out=decode();}catch(e){
-  answers=null;
+function draw(){
+ if(!img)return;
+ cx.drawImage(img,0,0,c.width,c.height);
+ cx.lineWidth=Math.max(2,c.width/600);
+ corners.forEach((p,i)=>{
+  cx.strokeStyle='#e11d48';cx.beginPath();cx.arc(p.x,p.y,Math.max(5,c.width/170),0,Math.PI*2);cx.stroke();
+  cx.font=Math.max(14,c.width/45)+'px sans-serif';cx.fillStyle='#e11d48';
+  cx.fillText(''+(i+1),p.x+7,p.y-6);
+ });
+ if(corners.length===4){
+  cx.strokeStyle='#16a34a';cx.beginPath();cx.moveTo(corners[0].x,corners[0].y);
+  for(let i=1;i<4;i++)cx.lineTo(corners[i].x,corners[i].y);
+  cx.closePath();cx.stroke();
+ }
+}
+function markStatus(t){estado.textContent=t}
+foto.onchange=()=>{
+ const file=foto.files[0];if(!file)return;
+ const url=URL.createObjectURL(file),loaded=new Image();
+ loaded.onload=()=>{
+  const scale=Math.min(1,1800/loaded.width);
+  c.width=Math.round(loaded.width*scale);c.height=Math.round(loaded.height*scale);
+  img=loaded;corners=[];answers=null;resultado.innerHTML='';
   document.getElementById('enviar').disabled=true;
-  resultado.innerHTML='<p class="warn">'+e.message+'</p>';
-  estado.textContent='A leitura não foi concluída. Veja a mensagem abaixo.';
-  return;
+  readPixels();URL.revokeObjectURL(url);
+  try{corners=detectCorners();markStatus('Quatro cantos encontrados automaticamente. Toque em Ler 20 dígitos.');}
+  catch(e){cornerMode='manual';markStatus('Não foi possível alinhar automaticamente. Toque em Ajustar quatro cantos e marque os cantos externos da grade.');}
+  draw();
+ };
+ loaded.src=url;
+};
+function darkAt(x,y){
+ x=Math.round(x);y=Math.round(y);
+ if(x<0||y<0||x>=c.width||y>=c.height)return 0;
+ const k=(y*c.width+x)*4,p=imagePixels.data;
+ return p[k]*.299+p[k+1]*.587+p[k+2]*.114 < 130 ? 1:0;
+}
+function detectCorners(){
+ const w=c.width,h=c.height;
+ if(!imagePixels||w<450||h<450)throw Error('Foto pequena');
+ // Detectar linhas verticais longas de altura semelhante: duas bordas por bloco.
+ // Não exigir quantidade fixa de linhas, nem linhas horizontais contínuas.
+ const candidates=[],minimum=Math.floor(h*.15),tol=Math.max(1,Math.round(h*.002));
+ for(let x=0;x<w;x++){
+  let begin=-1,last=-1,best=0,from=0,to=0;
+  for(let y=0;y<h;y++){
+   if(darkAt(x,y)){
+    if(begin<0)begin=y;last=y;
+   }else if(begin>=0&&y-last>tol){
+    const n=last-begin+1;
+    if(n>best){best=n;from=begin;to=last;}
+    begin=-1;
+   }
+  }
+  if(begin>=0&&last-begin+1>best){best=last-begin+1;from=begin;to=last;}
+  if(best>=minimum)candidates.push({x,from,to});
  }
- answers=out;
- let table='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Leitura</th></tr>';
+ if(candidates.length<10)throw Error('Bordas longas insuficientes');
+ const bin=Math.max(3,Math.round(h*.012));
+ let best=[],clusters=new Map();
+ for(const item of candidates){
+  const key=Math.round(item.from/bin)+'|'+Math.round(item.to/bin);
+  if(!clusters.has(key))clusters.set(key,[]);
+  clusters.get(key).push(item);
+ }
+ for(const group of clusters.values()){
+  if(group.length>best.length)best=group;
+ }
+ if(best.length<8)throw Error('Grupo de colunas indefinido');
+ const from=best.reduce((a,v)=>a+v.from,0)/best.length,to=best.reduce((a,v)=>a+v.to,0)/best.length;
+ const aligned=candidates.filter(z=>Math.abs(z.from-from)<bin*2.5&&Math.abs(z.to-to)<bin*2.5);
+ const xs=aligned.map(z=>z.x).sort((a,b)=>a-b);
+ if(xs.length<8)throw Error('Não há bordas suficientes');
+ // Evitar fusão das bordas e linhas internas: usar extremos de grupo coerente.
+ const minX=xs[0],maxX=xs[xs.length-1],width=maxX-minX;
+ if(width<w*.35||to-from<h*.13)throw Error('Região da grade incompleta');
+ const pts=[{x:minX,y:from},{x:maxX,y:from},{x:maxX,y:to},{x:minX,y:to}];
+ if(pts.some(p=>!Number.isFinite(p.x+p.y)))throw Error('Coordenadas inválidas');
+ return pts;
+}
+function sampleGrid(u,v){
+ const [tl,tr,br,bl]=corners;
+ return {x:(1-u)*(1-v)*tl.x+u*(1-v)*tr.x+u*v*br.x+(1-u)*v*bl.x,
+         y:(1-u)*(1-v)*tl.y+u*(1-v)*tr.y+u*v*br.y+(1-u)*v*bl.y};
+}
+function densityAt(u,v,halfX,halfY){
+ const p=sampleGrid(u,v);
+ const px=sampleGrid(u+halfX,v), py=sampleGrid(u,v+halfY);
+ const rx=Math.max(2,Math.round(Math.hypot(px.x-p.x,px.y-p.y)));
+ const ry=Math.max(2,Math.round(Math.hypot(py.x-p.x,py.y-p.y)));
+ let count=0,total=0;
+ for(let dy=-ry;dy<=ry;dy++)for(let dx=-rx;dx<=rx;dx++){
+  if(dx*dx/(rx*rx)+dy*dy/(ry*ry)>1)continue;
+  count+=darkAt(p.x+dx,p.y+dy);total++;
+ }
+ return total?count/total:0;
+}
+function decode(){
+ if(!img)throw Error('Selecione a fotografia do cartão.');
+ if(corners.length!==4)throw Error('Alinhe os quatro cantos externos da grade.');
+ const upperWidth=Math.hypot(corners[1].x-corners[0].x,corners[1].y-corners[0].y);
+ const lowerWidth=Math.hypot(corners[2].x-corners[3].x,corners[2].y-corners[3].y);
+ const sideHeight=Math.hypot(corners[3].x-corners[0].x,corners[3].y-corners[0].y);
+ if(Math.min(upperWidth,lowerWidth)<c.width*.35||sideHeight<c.height*.10)throw Error('Os quatro pontos não delimitam toda a grade.');
+ const output=[];
  for(let q=0;q<10;q++){
-  const r=out[q];
-  table+='<tr><td>Q'+String(q+1).padStart(2,'0')+'</td><td>'+r.parsed[0].digit+'</td><td>'+r.parsed[1].digit+'</td><td><input type="number" min="0" max="15" step="1" value="'+r.value+'" data-q="'+q+'" style="width:70px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Detectado':'Inseguro')+'</td></tr>';
+  const columns=[];
+  for(const [offset,n] of [[.30,2],[.67,10]]){
+   const scores=[];
+   for(let digit=0;digit<n;digit++){
+    const u=(q+offset)/10,v=.150+.0855*digit;
+    scores.push(densityAt(u,v,.0055,.013));
+   }
+   const ranked=scores.map((score,digit)=>({score,digit})).sort((a,b)=>b.score-a.score);
+   columns.push({digit:ranked[0].digit,score:ranked[0].score,margin:ranked[0].score-ranked[1].score,offset});
+  }
+  const value=10*columns[0].digit+columns[1].digit;
+  const reliable=value<=15&&columns.every(z=>z.score>=.48&&z.margin>=.23);
+  output.push({value,parsed:columns,reliable});
  }
- table+='</table><p><small>Os contornos verdes mostram os quadradinhos analisados. Confira as somas antes de enviar.</small></p>';
+ draw();
+ for(let q=0;q<10;q++)for(let i=0;i<2;i++){
+  const z=output[q].parsed[i],p=sampleGrid((q+z.offset)/10,.150+.0855*z.digit);
+  const rad=Math.max(3,Math.min(c.width,c.height)/160);
+  cx.strokeStyle=output[q].reliable?'#16a34a':'#dc2626';
+  cx.strokeRect(p.x-rad,p.y-rad,rad*2,rad*2);
+ }
+ return output;
+}
+document.getElementById('autoModo').onclick=()=>{
+ cornerMode='auto';
+ if(!img){markStatus('Selecione a foto.');return;}
+ try{corners=detectCorners();draw();markStatus('Quatro cantos alinhados automaticamente. Leia os 20 dígitos.');}
+ catch(e){corners=[];draw();markStatus('Alinhamento automático indisponível. Use Ajustar quatro cantos.');}
+};
+document.getElementById('manualModo').onclick=()=>{
+ cornerMode='manual';corners=[];draw();
+ markStatus('Toque no canto externo SUPERIOR ESQUERDO da grade (não no QR Code).');
+};
+document.getElementById('recomecar').onclick=()=>{
+ answers=null;resultado.innerHTML='';
+ document.getElementById('enviar').disabled=true;
+ if(img){try{corners=detectCorners();cornerMode='auto';}catch(e){corners=[];cornerMode='manual';}draw();}
+ markStatus(corners.length===4?'Alinhamento refeito. Toque em Ler 20 dígitos.':'Toque em Ajustar quatro cantos.');
+};
+c.onclick=(event)=>{
+ if(!img||cornerMode!=='manual'||corners.length>=4)return;
+ const rect=c.getBoundingClientRect();
+ const x=(event.clientX-rect.left)*c.width/rect.width;
+ const y=(event.clientY-rect.top)*c.height/rect.height;
+ // Ajuste do toque para a interseção das bordas no raio de até 2% da largura.
+ const radius=Math.max(5,Math.min(35,Math.round(c.width*.014)));
+ let best={x,y,score:-1};
+ for(let dy=-radius;dy<=radius;dy+=2)for(let dx=-radius;dx<=radius;dx+=2){
+  const px=x+dx,py=y+dy;
+  let horizontal=0,vertical=0;
+  for(let d=-radius;d<=radius;d+=3){
+   horizontal+=darkAt(px+d,py);
+   vertical+=darkAt(px,py+d);
+  }
+  const score=Math.min(horizontal,vertical)-.004*(dx*dx+dy*dy);
+  if(score>best.score)best={x:px,y:py,score};
+ }
+ corners.push({x:best.x,y:best.y});
+ draw();
+ markStatus(corners.length<4?'Agora marque o canto '+cornerNames[corners.length]+'.':'Quatro cantos marcados. Toque em Ler 20 dígitos.');
+};
+document.getElementById('analisar').onclick=()=>{
+ let output;
+ try{output=decode();}catch(e){
+  answers=null;document.getElementById('enviar').disabled=true;
+  resultado.innerHTML='<p class="warn">'+e.message+'</p>';return;
+ }
+ answers=output;
+ let table='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Leitura</th></tr>';
+ output.forEach((r,q)=>{
+  table+='<tr><td>Q'+String(q+1).padStart(2,'0')+'</td><td>'+r.parsed[0].digit+'</td><td>'+r.parsed[1].digit+'</td><td><input type="number" min="0" max="15" step="1" value="'+r.value+'" data-q="'+q+'" style="width:70px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Identificado':'Revisar')+'</td></tr>';
+ });
+ table+='</table><p><small>Confira as somas antes de gravar notas.</small></p>';
  resultado.innerHTML=table;
- const all=out.every(v=>v.reliable);
+ const all=output.every(v=>v.reliable);
  document.getElementById('enviar').disabled=!all;
- estado.textContent=all?'Leitura concluída. Confira os dez valores antes de enviar.':'Algumas marcações não foram identificadas com segurança. Faça uma foto mais nítida.';
+ markStatus(all?'Dez respostas reconhecidas. Confira antes de enviar.':'Há marcações incertas. Ajuste os cantos ou tire outra foto.');
 };
 document.getElementById('enviar').onclick=()=>{const inputs=[...resultado.querySelectorAll('input[data-q]')];if(inputs.length!==10)return;const marks=inputs.map(x=>Number(x.value));if(marks.some(v=>!Number.isInteger(v)||v<0||v>15)){alert('Corrija as respostas: devem ficar entre 00 e 15.');return;}if(!confirm('Conferiu visualmente as 10 respostas? Elas NÃO serão salvas até clicar Salvar no corretor.'))return;localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,timestamp:Date.now()}));location.href='index.html?omr=1';};
 </script></body></html>
