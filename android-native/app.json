@@ -8,13 +8,25 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "br.edu.padrenicolaubaltazar.pss1",
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "ios": {
       "bundleIdentifier": "br.edu.padrenicolaubaltazar.pss1",
       "infoPlist": {
         "NSCameraUsageDescription": "A câmera é utilizada para ler QR Codes e cartões de respostas."
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
+    ]
   }
 }
