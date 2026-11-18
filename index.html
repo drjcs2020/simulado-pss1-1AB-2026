@@ -563,6 +563,8 @@ async function resetCorrections(scope){
  }else return;
  const answer=prompt('Isto apagará '+description+' no aplicativo e no Google Sheets. Não afeta as provas nem os dados dos alunos.\n\nPara confirmar, digite exatamente:\n'+expected);
  if(answer!==expected){info.textContent='Reset cancelado. Nenhuma correção foi apagada.';return;}
+ const pin=prompt('Informe o PIN administrativo de reset (configurado em PSS_RESET_PIN no Apps Script).');
+ if(!pin){info.textContent='Reset cancelado: PIN não informado.';return;}
  if(!gasUrl){info.textContent='Reset não realizado: configure a URL do Apps Script para não deixar o celular diferente da planilha.';return;}
  resetting=true;
  info.textContent='Verificando compatibilidade do Apps Script antes de apagar…';
@@ -571,7 +573,7 @@ async function resetCorrections(scope){
   if(!ping.ok)throw Error('Falha HTTP '+ping.status);
   const version=await ping.json();
   if(version.status!=='ok'||Number(version.version)<3)throw Error('O Apps Script ainda é antigo. Atualize e implante o Code.gs v3 para habilitar o reset na planilha.');
-  const payload={action:'reset',scope,turma,num,confirmation:expected};
+  const payload={action:'reset',scope,turma,num,confirmation:expected,resetPin:pin};
   const response=await fetch(gasUrl,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
   if(!response.ok)throw Error('Erro de gravação HTTP '+response.status);
   const result=await response.json();
