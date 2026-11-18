@@ -109,7 +109,7 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
    const confident=scores[0].value>.55&&(scores[0].value-scores[1].value)>.24;
    columns.push({digit:confident?scores[0].digit:null,candidate:scores[0].digit,confidence:scores[0].value-scores[1].value});
   }
-  const value=columns.every(c=>c.digit!==null)?columns[0].digit*10+columns[1].digit:null;
+  const value=columns.every(c=>c.digit!==null)?columns[0].digit!*10+columns[1].digit!:null;
   return {columns,value,valid:value!==null&&value<=15};
  });
  return {boxes,results};
