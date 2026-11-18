@@ -217,6 +217,9 @@ document.getElementById('freeze').onclick=async()=>{
  st.source=screenshot;st.sourceType='image';
  stopCamera();
  document.getElementById('resume').disabled=false;
+ // Aguardar a análise do último frame ao vivo antes de analisar a imagem congelada.
+ for(let attempt=0;st.busy&&attempt<50;attempt++)await new Promise(resolve=>setTimeout(resolve,40));
+ if(st.busy){status('A análise da câmera ainda está ocupada. Toque em Reanalisar imagem.');return;}
  await analyzeFrame(st.source,false);
 };
 document.getElementById('resume').onclick=()=>{document.getElementById('start').click()};
