@@ -82,7 +82,7 @@
     <div id="tab-corrigir">
       <div class="card">
         <div class="row" style="justify-content:space-between;">
-          <button class="btn btn-primary" onclick="toggleCamera()" id="btnCamera">📷 Ler QR Code da Prova</button>
+          <button class="btn btn-primary" onclick="toggleCamera()" id="btnCamera">📷 Ler QR Code da Prova</button><button class="btn btn-ok" onclick="openOmrScanner()">📄 Ler cartão (dezenas/unidades)</button>
           <span id="qrFeedback" style="font-size:12px;color:var(--muted);">Formato: PSS1|TURMA|Nº|TIPO</span>
         </div>
         <video id="qrVideo" playsinline></video>
@@ -101,7 +101,7 @@
 
       <div class="card">
         <div class="row" style="justify-content:space-between;">
-          <strong>Cartão-Resposta (Toque nas proposições marcadas)</strong>
+          <strong>Conferência das somatórias (00–15) — cada soma corresponde a 01+02+04+08</strong>
           <span style="font-size:16px;font-weight:800;color:var(--primary);">Nota: <span id="liveTotal">0,00</span> / 10,00</span>
         </div>
         <div class="q-grid" id="questionsGrid"></div>
@@ -215,6 +215,35 @@ let gasUrl = localStorage.getItem('pss1_2026_gas_url') || '';
 let videoStream = null;
 let scanTimer = null;
 
+
+function openOmrScanner() {
+  const turma = document.getElementById('selTurma').value;
+  const num = Number(document.getElementById('selAluno').value);
+  const st = ROSTERS[turma].find(x => x.num === num);
+  if (!st) { showToast('Selecione primeiro um estudante.'); return; }
+  location.href = 'scanner.html?turma=' + encodeURIComponent(turma) + '&num=' + num + '&tipo=' + encodeURIComponent(st.type);
+}
+function importPendingOmr() {
+  const raw = localStorage.getItem('pss1_omr_pending');
+  if (!raw) return;
+  localStorage.removeItem('pss1_omr_pending');
+  try {
+    const rec = JSON.parse(raw);
+    const st = (ROSTERS[rec.turma] || []).find(s => s.num === rec.num);
+    if (!st || rec.tipo !== st.type || !Array.isArray(rec.marks) ||
+        rec.marks.length !== 10 || !rec.marks.every(n => Number.isInteger(n) && n >= 0 && n <= 15)) {
+      showToast('Leitura rejeitada: aluno, versão ou somas inválidas.'); return;
+    }
+    document.getElementById('selTurma').value = rec.turma;
+    onTurmaChange();
+    document.getElementById('selAluno').value = String(rec.num);
+    onAlunoChange();
+    currentMarks = [...rec.marks];
+    renderQuestions();
+    showToast('Somas importadas para ' + st.name + '. Confira e clique Salvar se estiver correto.');
+  } catch(e) { showToast('Não foi possível importar a leitura: ' + e.message); }
+}
+
 function calcPSS1Score(markedMask, correctMask) {
   if (markedMask === 0) return 0;
   // Se marcou qualquer proposição incorreta (bit ligado em markedMask que não está em correctMask) -> zera
@@ -230,6 +259,7 @@ function calcPSS1Score(markedMask, correctMask) {
 function init() {
   document.getElementById('gasUrlInput').value = gasUrl;
   onTurmaChange();
+  importPendingOmr();
   updateSyncBadge();
   if (navigator.onLine && gasUrl && syncQueue.length > 0) syncWithSheets();
 }
