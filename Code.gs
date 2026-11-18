@@ -25,9 +25,9 @@ function score_(mark,key){
 function doGet(e){
   try{
     var ss=workbook_(), action=e&&e.parameter&&e.parameter.action||'ping';
-    if(action==='ping')return response_({status:'ok',service:'PSS1-2026',version:2});
+    if(action==='ping')return response_({status:'ok',service:'PSS1-2026',version:3});
     if(action!=='data')return response_({status:'error',message:'Ação não permitida'});
-    return response_({status:'ok',version:2,turmas:{
+    return response_({status:'ok',version:3,turmas:{
       '1A':sheetToObjects_(ss.getSheetByName('1A')),
       '1B':sheetToObjects_(ss.getSheetByName('1B'))
     }});
@@ -40,6 +40,7 @@ function doPost(e){
     if(!locked)throw new Error('Outra gravação está em andamento. Repita a sincronização.');
     if(!e||!e.postData||!e.postData.contents)throw new Error('Requisição vazia.');
     var payload=JSON.parse(e.postData.contents);
+    if(payload.action==='reset')return resetCorrections_(payload);
     var records=Array.isArray(payload.records)?payload.records:[payload];
     if(records.length===0||records.length>50)throw new Error('Quantidade de registros inválida.');
     var ss=workbook_(),done=[],errors=[];
@@ -72,12 +73,47 @@ function doPost(e){
         sheet.getRange(rowIndex,5,1,11).setValues([['Corrigida'].concat(scores)]);
         sheet.getRange(rowIndex,17).setValue(now);
         SpreadsheetApp.flush();
-        done.push({turma:turma,num:num,total:total,version:2});
+        done.push({turma:turma,num:num,total:total,version:3});
       }catch(error){errors.push({turma:turma,num:num,message:String(error.message||error)});}
     });
     return response_({status:errors.length===0?'ok':'partial',updated:done.length,acknowledged:done,errors:errors,version:2});
   }catch(error){return response_({status:'error',message:String(error.message||error),updated:0,acknowledged:[]});}
   finally{if(locked)lock.releaseLock();}
+}
+
+/**
+ * Reset de correções: preserva identificação, QR, gabaritos e fórmulas na coluna P.
+ * Chamadas devem ser confirmadas pelo aplicativo. Não elimina histórico.
+ */
+function resetCorrections_(payload){
+ var scope=String(payload.scope||'');
+ var turma=String(payload.turma||'');
+ var num=Number(payload.num);
+ var confirmation=String(payload.confirmation||'');
+ if(!['student','class','all'].includes(scope))throw new Error('Escopo de reset inválido.');
+ if(scope==='student'&&(!['1A','1B'].includes(turma)||!Number.isInteger(num)||num<=0||confirmation!=='RESETAR '+turma+' '+num))
+   throw new Error('Confirmação de reset do estudante inválida.');
+ if(scope==='class'&&(!['1A','1B'].includes(turma)||confirmation!=='RESETAR '+turma))
+   throw new Error('Confirmação de reset da turma inválida.');
+ if(scope==='all'&&confirmation!=='RESETAR TODAS')throw new Error('Confirmação de reset geral inválida.');
+ var ss=workbook_(),affected=[],targets=(scope==='all'?['1A','1B']:[turma]);
+ targets.forEach(function(t){
+   var sheet=ss.getSheetByName(t);
+   if(!sheet)throw new Error('Turma não encontrada: '+t);
+   var rows=sheet.getRange(2,1,Math.max(1,sheet.getLastRow()-1),1).getValues();
+   rows.forEach(function(row,index){
+     var student=Number(row[0]);
+     if(!Number.isInteger(student)||student<1||scope==='student'&&student!==num)return;
+     var r=index+2;
+     // Limpar E, F:O e Q. Manter P com a fórmula Nota_Final.
+     sheet.getRange(r,5,1,11).clearContent();
+     sheet.getRange(r,5).setValue('Pendente');
+     sheet.getRange(r,17).clearContent();
+     affected.push({turma:t,num:student});
+   });
+ });
+ SpreadsheetApp.flush();
+ return response_({status:'ok',action:'reset',version:3,updated:affected.length,reset:affected});
 }
 function sheetToObjects_(sheet){
   if(!sheet)return [];
