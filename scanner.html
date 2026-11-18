@@ -3,10 +3,9 @@ const qs=new URLSearchParams(location.search), turma=qs.get('turma'),num=Number(
 document.getElementById('aluno').textContent='Turma '+(turma||'?')+' · Nº '+(num||'?')+' · Tipo '+(tipo||'?');
 const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null,autoMode=true;
 
-const labels=['A leitura agora detecta os contornos automaticamente.'];
+
 function draw(){
- if(!img)return;
- cx.drawImage(img,0,0,c.width,c.height);
+ if(img)cx.drawImage(img,0,0,c.width,c.height);
 }
 foto.onchange=()=>{
  const f=foto.files[0];if(!f)return;
@@ -14,152 +13,155 @@ foto.onchange=()=>{
  i.onload=()=>{
   const scale=Math.min(1,1800/i.width);
   c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);
-  img=i;answers=null;
+  img=i;answers=null;resultado.innerHTML='';
   document.getElementById('enviar').disabled=true;
-  resultado.innerHTML='';draw();
-  estado.textContent='Imagem carregada. Clique em Ler 20 dígitos: os contornos serão detectados automaticamente.';
+  draw();estado.textContent='Imagem carregada. Toque em Ler 20 dígitos.';
   URL.revokeObjectURL(url);
  };
  i.src=url;
 };
 document.getElementById('autoModo').style.display='none';
 document.getElementById('manualModo').style.display='none';
-document.getElementById('recomecar').textContent='Reiniciar leitura';
-document.getElementById('recomecar').onclick=()=>{
- answers=null;resultado.innerHTML='';
- document.getElementById('enviar').disabled=true;
- draw();estado.textContent='Clique em Ler 20 dígitos para reanalisar.';
-};
-c.onclick=()=>{};
-
-function groupsFromPositions(indices,allowGap=1){
- let out=[],curr=[];
- for(const v of indices){
-  if(curr.length && v-curr[curr.length-1]>allowGap){out.push(curr);curr=[];}
-  curr.push(v);
+document.getElementById('recomecar').textContent='Reanalisar foto';
+document.getElementById('recomecar').onclick=()=>{answers=null;resultado.innerHTML='';document.getElementById('enviar').disabled=true;draw();estado.textContent='Toque em Ler 20 dígitos.';};
+function groupNumbers(values,gap){
+ const gs=[];let g=[];
+ for(const v of values){
+  if(g.length && v-g[g.length-1]>gap){gs.push(g);g=[];}
+  g.push(v);
  }
- if(curr.length)out.push(curr);
+ if(g.length)gs.push(g);
+ return gs.map(a=>a.reduce((s,n)=>s+n,0)/a.length);
+}
+function decode(){
+ if(!img)throw Error('Selecione a foto do cartão.');
+ draw();
+ const w=c.width,h=c.height,pixel=cx.getImageData(0,0,w,h).data;
+ if(w<450||h<450)throw Error('Imagem pequena. Use uma foto com maior resolução.');
+ const bw=new Uint8Array(w*h);
+ for(let k=0,n=0;k<pixel.length;k+=4,n++){
+  const v=pixel[k]*.299+pixel[k+1]*.587+pixel[k+2]*.114;
+  bw[n]=v<125?1:0;
+ }
+ // Procurar linhas verticais longas. O bloco das respostas contém
+ // exatamente 20 bordas externas (duas por questão), todas à mesma altura.
+ const candidates=[];
+ const minRun=Math.floor(h*.13);
+ for(let x=0;x<w;x++){
+  let begin=-1,best=0,bestStart=0,bestEnd=0,gap=0;
+  for(let y=0;y<h;y++){
+   const isDark=bw[y*w+x];
+   if(isDark){
+    if(begin<0)begin=y;
+    gap=0;
+   }else if(begin>=0){
+    gap++;
+    if(gap>1){
+     const last=y-gap+1,len=last-begin;
+     if(len>best){best=len;bestStart=begin;bestEnd=last;}
+     begin=-1;gap=0;
+    }
+   }
+  }
+  if(begin>=0 && h-begin>best){best=h-begin;bestStart=begin;bestEnd=h;}
+  if(best>=minRun)candidates.push({x,start:bestStart,end:bestEnd,len:best});
+ }
+ if(candidates.length<20)throw Error('Não encontrei os contornos das dez colunas. Fotografe o bloco completo.');
+ // Procurar o conjunto de 20 linhas paralelas com mesmo início e fim.
+ // A tolerância cobre diferenças pequenas de compressão e perspectiva.
+ const tol=Math.max(3,h*.012);
+ let cluster=[];
+ for(const seed of candidates){
+  const group=candidates.filter(v=>Math.abs(v.start-seed.start)<=tol&&Math.abs(v.end-seed.end)<=tol);
+  if(group.length>cluster.length)cluster=group;
+ }
+ if(cluster.length<20)throw Error('A foto está muito inclinada ou desfocada. Aproxime o celular e fotografe de frente.');
+ const xs=groupNumbers(cluster.map(a=>a.x).sort((a,b)=>a-b),2);
+ if(xs.length!==20)throw Error('Não foi possível separar as dez colunas. Use a foto inteira do cartão, sem reflexos.');
+ const boxes=Array.from({length:10},(_,i)=>[xs[2*i],xs[2*i+1]]);
+ const widths=boxes.map(b=>b[1]-b[0]),avgWidth=widths.reduce((a,b)=>a+b,0)/10;
+ if(boxes.some(b=>b[1]-b[0]<avgWidth*.8||b[1]-b[0]>avgWidth*1.2)){
+  throw Error('Os contornos das colunas não estão consistentes. Fotografe de frente.');
+ }
+ const top=Math.min(...cluster.map(a=>a.start));
+ const bottom=Math.max(...cluster.map(a=>a.end));
+ const height=bottom-top;
+ const yFrom=Math.max(0,Math.floor(top+height*.04));
+ const yTo=Math.min(h,Math.floor(bottom-height*.013));
+ // Em cada linha horizontal, somar os traços superior/inferior dos quadradinhos
+ // ao redor das dezenas e unidades. Esses traços se repetem 20 vezes.
+ const bars=[];
+ for(let y=yFrom;y<yTo;y++){
+  let total=0;
+  for(const [left,right] of boxes){
+   const wd=right-left;
+   for(const frac of [.30,.67]){
+    const center=Math.round(left+frac*wd);
+    const rad=Math.max(2,Math.round(wd*.085));
+    for(let x=Math.max(0,center-rad);x<=Math.min(w-1,center+rad);x++)total+=bw[y*w+x];
+   }
+  }
+  bars.push({y,total});
+ }
+ const maxBar=Math.max(...bars.map(v=>v.total));
+ const rowBars=groupNumbers(bars.filter(v=>v.total>maxBar*.48).map(v=>v.y),2);
+ if(rowBars.length!==20)throw Error('Não foi possível identificar as dez linhas de dígitos. Aproxime a câmera do cartão.');
+ const centers=Array.from({length:10},(_,i)=>(rowBars[i*2]+rowBars[i*2+1])/2);
+ const cellHeight=rowBars[1]-rowBars[0];
+ function darkness(cx0,cy0,rx,ry){
+  let black=0,total=0;
+  for(let y=Math.max(0,Math.round(cy0-ry));y<=Math.min(h-1,Math.round(cy0+ry));y++)
+   for(let x=Math.max(0,Math.round(cx0-rx));x<=Math.min(w-1,Math.round(cx0+rx));x++){
+    black+=bw[y*w+x];total++;
+   }
+  return total?black/total:0;
+ }
+ const out=[];
+ for(let q=0;q<10;q++){
+  const [left,right]=boxes[q],wd=right-left;
+  const parsed=[];
+  for(const [frac,digits] of [[.30,2],[.67,10]]){
+   const x=left+frac*wd;
+   const scores=Array.from({length:digits},(_,digit)=>darkness(x,centers[digit],Math.max(2,wd*.07),Math.max(2,cellHeight*.29)));
+   const ranked=scores.map((score,digit)=>({digit,score})).sort((a,b)=>b.score-a.score);
+   parsed.push({digit:ranked[0].digit,score:ranked[0].score,margin:ranked[0].score-ranked[1].score,x});
+  }
+  const value=parsed[0].digit*10+parsed[1].digit;
+  const reliable=value<=15&&parsed.every(z=>z.score>=.62&&z.margin>=.35);
+  out.push({value,parsed,reliable});
+ }
+ // Mostrar no cartão os centros reais que foram examinados.
+ draw();
+ cx.lineWidth=Math.max(2,w/650);
+ for(let q=0;q<10;q++){
+  for(let col=0;col<2;col++){
+   const d=out[q].parsed[col],y=centers[d.digit],rad=Math.max(3,widths[q]*.055);
+   cx.strokeStyle=out[q].reliable?'#15803d':'#dc2626';
+   cx.strokeRect(d.x-rad,y-rad,2*rad,2*rad);
+  }
+ }
  return out;
 }
-function mean(arr){return arr.reduce((a,b)=>a+b,0)/arr.length}
-function detectAndRead(){
- const w=c.width,h=c.height;
- if(!img||w<400||h<350)throw Error('Imagem pequena: fotografe o cartão com mais resolução.');
- draw();
- const rgba=cx.getImageData(0,0,w,h).data;
- const dark=new Uint8Array(w*h);
- const rowCounts=new Uint32Array(h);
- for(let y=0;y<h;y++){
-  for(let x=0;x<w;x++){
-   const k=(y*w+x)*4,gray=(rgba[k]*.299+rgba[k+1]*.587+rgba[k+2]*.114);
-   if(gray<112){dark[y*w+x]=1;rowCounts[y]++;}
-  }
- }
- // A grade possui dois traços horizontais longos: topo e base.
- // Medimos os pixels reais, sem coordenadas relativas ao tamanho da foto.
- const ys=[];
- for(let y=Math.floor(h*.15);y<Math.floor(h*.97);y++){
-  if(rowCounts[y]>.58*w)ys.push(y);
- }
- const ygroups=groupsFromPositions(ys,2).filter(g=>g.length<=14);
- const horizontal=ygroups.map(g=>mean(g));
- const pairs=[];
- for(let i=0;i<horizontal.length;i++)for(let j=i+1;j<horizontal.length;j++){
-  const a=horizontal[i],b=horizontal[j];
-  if(b-a>h*.13 && b-a<h*.78 && b>h*.39)pairs.push([a,b]);
- }
- if(!pairs.length)throw Error('Não encontrei as linhas superior e inferior da grade. Inclua a grade completa na foto.');
- // A última linha horizontal longa é a base da grade; a penúltima é o topo.
- pairs.sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
- let [top,bottom]=pairs[0],gh=bottom-top;
- // Linhas verticais contínuas identificam o começo e o fim dos dez blocos.
- const y1=Math.floor(top+gh*.18),y2=Math.ceil(bottom-gh*.04);
- const counts=new Uint32Array(w);
- for(let y=y1;y<y2;y++)for(let x=0;x<w;x++)counts[x]+=dark[y*w+x];
- const xs=[];
- for(let x=0;x<w;x++)if(counts[x]>.78*(y2-y1))xs.push(x);
- const xgroups=groupsFromPositions(xs,2);
- if(xgroups.length<19)throw Error('Não reconheci as dez colunas da grade. Centralize o cartão e fotografe de frente.');
- const left=mean(xgroups[0]),right=mean(xgroups[xgroups.length-1]);
- const pitch=(right-left)/10;
- if(pitch<22||left<0||right>w)throw Error('Dimensões da grade inconsistentes. Faça outra captura.');
- const unitCenters=[];
- for(let q=0;q<10;q++){
-  const target0=left+(q+.57)*pitch,target1=left+(q+.79)*pitch;
-  const candidates=[];
-  let curr=[];
-  const xstart=Math.max(0,Math.floor(left+(q+.46)*pitch));
-  const xend=Math.min(w-1,Math.ceil(left+(q+.87)*pitch));
-  for(let x=xstart;x<=xend;x++){
-   if(counts[x]>.40*(y2-y1))curr.push(x);
-   else if(curr.length){candidates.push(mean(curr));curr=[];}
-  }
-  if(curr.length)candidates.push(mean(curr));
-  if(candidates.length<2)throw Error('Não encontrei os quadradinhos da questão '+(q+1)+'.');
-  const x0=candidates.reduce((best,x)=>Math.abs(x-target0)<Math.abs(best-target0)?x:best);
-  const x1=candidates.reduce((best,x)=>Math.abs(x-target1)<Math.abs(best-target1)?x:best);
-  if(x1-x0<pitch*.12||x1-x0>pitch*.35)throw Error('Posicionamento incerto dos quadradinhos Q'+(q+1)+'.');
-  unitCenters.push((x0+x1)/2);
- }
- function density(x,y,rx,ry){
-  let cnt=0,n=0;
-  for(let yy=Math.max(0,Math.round(y-ry));yy<=Math.min(h-1,Math.round(y+ry));yy++){
-   for(let xx=Math.max(0,Math.round(x-rx));xx<=Math.min(w-1,Math.round(x+rx));xx++){
-    cnt+=dark[yy*w+xx];n++;
-   }
-  }
-  return n?cnt/n:0;
- }
- const results=[];
- const rx=Math.max(2,pitch*.04),ry=Math.max(1,gh*.009);
- for(let q=0;q<10;q++){
-  const digits=[],confidences=[];
-  for(const col of ['dezena','unidade']){
-   const center=unitCenters[q]-(col==='dezena'?.33*pitch:0);
-   const scores=[];
-   for(let d=0;d<(col==='dezena'?2:10);d++){
-    const cy=top+gh*(.149+.0855*d);
-    scores.push(density(center,cy,rx,ry));
-   }
-   const ranked=scores.map((value,digit)=>({value,digit})).sort((a,b)=>b.value-a.value);
-   digits.push(ranked[0].digit);
-   confidences.push({best:ranked[0].value,margin:ranked[0].value-ranked[1].value});
-  }
-  const value=10*digits[0]+digits[1];
-  const reliable=value<=15&&confidences.every(c=>c.best>=.62&&c.margin>=.28);
-  results.push({value,digits,reliable,confidences});
- }
- // Deteção visual: cores indicam as posições efetivamente analisadas.
- draw();
- const rxdraw=Math.max(4,pitch*.055),rydraw=Math.max(3,gh*.015);
- for(let q=0;q<10;q++)for(let col=0;col<2;col++){
-  const d=results[q].digits[col],center=unitCenters[q]-(col===0?.33*pitch:0),cy=top+gh*(.149+.0855*d);
-  cx.strokeStyle=results[q].reliable?'#16a34a':'#dc2626';
-  cx.lineWidth=Math.max(2,w/650);
-  cx.strokeRect(center-rxdraw,cy-rydraw,2*rxdraw,2*rydraw);
- }
- return results;
-}
 document.getElementById('analisar').onclick=()=>{
- if(!img){estado.textContent='Selecione a fotografia do cartão primeiro.';return;}
  let out;
- try{out=detectAndRead()}catch(e){
-  answers=null;resultado.innerHTML='<p class="warn">'+e.message+'</p>';
+ try{out=decode();}catch(e){
+  answers=null;
   document.getElementById('enviar').disabled=true;
-  estado.textContent='Leitura interrompida: a grade não foi localizada com precisão.';
+  resultado.innerHTML='<p class="warn">'+e.message+'</p>';
+  estado.textContent='A leitura não foi concluída. Veja a mensagem abaixo.';
   return;
  }
  answers=out;
- let html='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Confiança</th></tr>';
- for(let i=0;i<10;i++){
-  const r=out[i];
-  html+='<tr><td>Q'+String(i+1).padStart(2,'0')+'</td><td>'+r.digits[0]+'</td><td>'+r.digits[1]+'</td><td><input type="number" aria-label="Soma Q'+(i+1)+'" data-q="'+i+'" min="0" max="15" value="'+r.value+'" style="width:66px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Detectado':'Revisar')+'</td></tr>';
+ let table='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Leitura</th></tr>';
+ for(let q=0;q<10;q++){
+  const r=out[q];
+  table+='<tr><td>Q'+String(q+1).padStart(2,'0')+'</td><td>'+r.parsed[0].digit+'</td><td>'+r.parsed[1].digit+'</td><td><input type="number" min="0" max="15" step="1" value="'+r.value+'" data-q="'+q+'" style="width:70px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Detectado':'Inseguro')+'</td></tr>';
  }
- html+='</table><p><small>Contornos verdes indicam os campos analisados. A confirmação final é obrigatória antes de salvar notas.</small></p>';
- resultado.innerHTML=html;
- const all=out.every(r=>r.reliable);
+ table+='</table><p><small>Os contornos verdes mostram os quadradinhos analisados. Confira as somas antes de enviar.</small></p>';
+ resultado.innerHTML=table;
+ const all=out.every(v=>v.reliable);
  document.getElementById('enviar').disabled=!all;
- estado.textContent=all?'10 respostas detectadas. Confira com o cartão antes de enviar.':'Há respostas incertas: nenhuma será enviada. Faça outra fotografia mais reta e nítida.';
+ estado.textContent=all?'Leitura concluída. Confira os dez valores antes de enviar.':'Algumas marcações não foram identificadas com segurança. Faça uma foto mais nítida.';
 };
 document.getElementById('enviar').onclick=()=>{const inputs=[...resultado.querySelectorAll('input[data-q]')];if(inputs.length!==10)return;const marks=inputs.map(x=>Number(x.value));if(marks.some(v=>!Number.isInteger(v)||v<0||v>15)){alert('Corrija as respostas: devem ficar entre 00 e 15.');return;}if(!confirm('Conferiu visualmente as 10 respostas? Elas NÃO serão salvas até clicar Salvar no corretor.'))return;localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,timestamp:Date.now()}));location.href='index.html?omr=1';};
 </script></body></html>
