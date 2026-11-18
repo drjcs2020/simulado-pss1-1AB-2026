@@ -250,8 +250,19 @@ $('freeze').onclick=async()=>{
  frozen.src=snapshot.toDataURL('image/png');
  state.frozen=true;state.source=frozen;closeCamera();showSource();
  try{await ready}catch(e){message('Imagem não disponível. Digite as somatórias.');return}
- message('Imagem congelada. Confira as proposições marcadas ou toque em Ler marcações da imagem.');
- if(state.result){drawSnapshot(state.source);drawBoxes(state.result,false)}
+ state.result=null;
+ overlayCtx.clearRect(0,0,overlay.width,overlay.height);
+ if(state.cv){
+  try{
+   const found=readImage(state.cv,snapshot);
+   if(!found.error){
+    state.result=found;
+    applyRead(found.results.map(r=>r.valid?r.value:null));
+    drawBoxes(found,true);
+    message('Imagem congelada e lida. Confira as proposições marcadas.');
+   }else message('Imagem congelada. Marque as proposições ou tente Ler marcações da imagem.');
+  }catch(e){message('Imagem congelada. Use os quadradinhos para revisar.')}
+ }else message('Imagem congelada. Marque as proposições ou toque em Ler marcações da imagem.');
 };
 $('file').onchange=async e=>{
  const f=e.target.files?.[0];if(!f)return;
@@ -260,7 +271,15 @@ $('file').onchange=async e=>{
  try{
   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
   state.source=img;drawSnapshot(img);
-  message('Imagem carregada. Toque em Ler marcações da imagem ou marque 01, 02, 04 e 08 abaixo.');
+  if(state.cv){
+   try{
+    const found=readImage(state.cv,snapshot);
+    if(!found.error){
+     state.result=found;applyRead(found.results.map(r=>r.valid?r.value:null));drawBoxes(found,true);
+     message('Imagem carregada e analisada. Confira os quadradinhos.'); 
+    }else message('Imagem carregada. Marque as proposições abaixo ou toque em Ler marcações.');
+   }catch(e){message('Imagem carregada. Use os botões 01, 02, 04 e 08.')}
+  }else message('Imagem carregada. Marque as proposições ou toque em Ler marcações da imagem.');
  }catch(err){message('Falha ao abrir a imagem: '+String(err.message||err))}
  finally{URL.revokeObjectURL(url)}
 };
