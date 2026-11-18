@@ -76,7 +76,7 @@ function doPost(e){
         done.push({turma:turma,num:num,total:total,version:4});
       }catch(error){errors.push({turma:turma,num:num,message:String(error.message||error)});}
     });
-    return response_({status:errors.length===0?'ok':'partial',updated:done.length,acknowledged:done,errors:errors,version:2});
+    return response_({status:errors.length===0?'ok':'partial',updated:done.length,acknowledged:done,errors:errors,version:4});
   }catch(error){return response_({status:'error',message:String(error.message||error),updated:0,acknowledged:[]});}
   finally{if(locked)lock.releaseLock();}
 }
