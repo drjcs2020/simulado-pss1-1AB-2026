@@ -2,75 +2,164 @@
 const qs=new URLSearchParams(location.search), turma=qs.get('turma'),num=Number(qs.get('num')),tipo=qs.get('tipo');
 document.getElementById('aluno').textContent='Turma '+(turma||'?')+' · Nº '+(num||'?')+' · Tipo '+(tipo||'?');
 const c=document.getElementById('cv'),cx=c.getContext('2d',{willReadFrequently:true}),foto=document.getElementById('foto'),estado=document.getElementById('estado'),resultado=document.getElementById('resultado');let points=[],answers=null,img=null,autoMode=true;
-const automaticReference=()=>{
- if(!img)return false;
- // Coordenadas normalizadas para o cartão didático completo, visto de frente.
- // Ref. Q01 unidade 0, Q10 unidade 0, Q10 unidade 9, Q01 unidade 9.
- points=[{x:c.width*.1243,y:c.height*.5147},{x:c.width*.9164,y:c.height*.5147},{x:c.width*.9164,y:c.height*.8241},{x:c.width*.1243,y:c.height*.8241}];
- draw();return true;
-};
-document.getElementById('autoModo').onclick=()=>{autoMode=true;if(img){automaticReference();estado.textContent='Modo automático: clique em Ler 20 dígitos.';}else estado.textContent='Modo automático selecionado. Escolha a imagem.';};
-document.getElementById('manualModo').onclick=()=>{autoMode=false;points=[];draw();estado.textContent='Modo manual: toque '+labels[0];};
-const labels=['Q01: unidade 0','Q10: unidade 0','Q10: unidade 9','Q01: unidade 9'];
-function draw(){if(!img)return;cx.drawImage(img,0,0,c.width,c.height);cx.lineWidth=Math.max(2,c.width/450);points.forEach((p,i)=>{cx.beginPath();cx.strokeStyle='#dc2626';cx.arc(p.x,p.y,c.width/100,0,Math.PI*2);cx.stroke();cx.fillStyle='#dc2626';cx.font=(c.width/45)+'px sans-serif';cx.fillText(String(i+1),p.x+12,p.y-12)});}
-foto.onchange=()=>{const f=foto.files[0];if(!f)return;const url=URL.createObjectURL(f),i=new Image();i.onload=()=>{const scale=Math.min(1,1800/i.width);c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);img=i;points=[];answers=null;document.getElementById('enviar').disabled=true;draw();if(autoMode){automaticReference();estado.textContent='Modo automático pronto. Clique em Ler 20 dígitos.';}else estado.textContent='Toque: '+labels[0];URL.revokeObjectURL(url)};i.src=url};
-document.getElementById('recomecar').onclick=()=>{points=[];answers=null;draw();if(autoMode){automaticReference();estado.textContent='Modo automático pronto.';}else estado.textContent='Toque: '+labels[0];};
-c.onclick=e=>{if(!img||autoMode||points.length===4)return;const r=c.getBoundingClientRect();points.push({x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height});draw();estado.textContent=points.length===4?'Pronto para analisar.':'Toque: '+labels[points.length];};
 
-function xy(question,digit,column) {
-  const u=question/9,v=digit/9,[a,b,d,e]=points;
-  const x=(1-u)*(1-v)*a.x+u*(1-v)*b.x+u*v*d.x+(1-u)*v*e.x;
-  const y=(1-u)*(1-v)*a.y+u*(1-v)*b.y+u*v*d.y+(1-u)*v*e.y;
-  // O cartão impresso possui distância horizontal 0,54 cm entre
-  // dezena e unidade; entre questões a distância é 1,68 cm.
-  const pitchX=((b.x-a.x)+(d.x-e.x))/18;
-  const pitchY=((b.y-a.y)+(d.y-e.y))/18;
-  const shift=column==='dezena'?-0.325:0;
-  return {x:x+pitchX*shift,y:y+pitchY*shift};
+const labels=['A leitura agora detecta os contornos automaticamente.'];
+function draw(){
+ if(!img)return;
+ cx.drawImage(img,0,0,c.width,c.height);
 }
-function density(data,x,y,r){
-  let dark=0,total=0;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-    if(Math.abs(dx)>r||Math.abs(dy)>r)continue;
-    let xx=Math.round(x+dx),yy=Math.round(y+dy);
-    if(xx<0||yy<0||xx>=c.width||yy>=c.height)continue;
-    let k=(yy*c.width+xx)*4;
-    let gray=(data[k]+data[k+1]+data[k+2])/3;
-    if(gray<115)dark++;
-    total++;
+foto.onchange=()=>{
+ const f=foto.files[0];if(!f)return;
+ const url=URL.createObjectURL(f),i=new Image();
+ i.onload=()=>{
+  const scale=Math.min(1,1800/i.width);
+  c.width=Math.round(i.width*scale);c.height=Math.round(i.height*scale);
+  img=i;answers=null;
+  document.getElementById('enviar').disabled=true;
+  resultado.innerHTML='';draw();
+  estado.textContent='Imagem carregada. Clique em Ler 20 dígitos: os contornos serão detectados automaticamente.';
+  URL.revokeObjectURL(url);
+ };
+ i.src=url;
+};
+document.getElementById('autoModo').style.display='none';
+document.getElementById('manualModo').style.display='none';
+document.getElementById('recomecar').textContent='Reiniciar leitura';
+document.getElementById('recomecar').onclick=()=>{
+ answers=null;resultado.innerHTML='';
+ document.getElementById('enviar').disabled=true;
+ draw();estado.textContent='Clique em Ler 20 dígitos para reanalisar.';
+};
+c.onclick=()=>{};
+
+function groupsFromPositions(indices,allowGap=1){
+ let out=[],curr=[];
+ for(const v of indices){
+  if(curr.length && v-curr[curr.length-1]>allowGap){out.push(curr);curr=[];}
+  curr.push(v);
+ }
+ if(curr.length)out.push(curr);
+ return out;
+}
+function mean(arr){return arr.reduce((a,b)=>a+b,0)/arr.length}
+function detectAndRead(){
+ const w=c.width,h=c.height;
+ if(!img||w<400||h<350)throw Error('Imagem pequena: fotografe o cartão com mais resolução.');
+ draw();
+ const rgba=cx.getImageData(0,0,w,h).data;
+ const dark=new Uint8Array(w*h);
+ const rowCounts=new Uint32Array(h);
+ for(let y=0;y<h;y++){
+  for(let x=0;x<w;x++){
+   const k=(y*w+x)*4,gray=(rgba[k]*.299+rgba[k+1]*.587+rgba[k+2]*.114);
+   if(gray<112){dark[y*w+x]=1;rowCounts[y]++;}
   }
-  return total?dark/total:0;
+ }
+ // A grade possui dois traços horizontais longos: topo e base.
+ // Medimos os pixels reais, sem coordenadas relativas ao tamanho da foto.
+ const ys=[];
+ for(let y=Math.floor(h*.15);y<Math.floor(h*.97);y++){
+  if(rowCounts[y]>.58*w)ys.push(y);
+ }
+ const ygroups=groupsFromPositions(ys,2).filter(g=>g.length<=14);
+ const horizontal=ygroups.map(g=>mean(g));
+ const pairs=[];
+ for(let i=0;i<horizontal.length;i++)for(let j=i+1;j<horizontal.length;j++){
+  const a=horizontal[i],b=horizontal[j];
+  if(b-a>h*.13 && b-a<h*.78 && b>h*.39)pairs.push([a,b]);
+ }
+ if(!pairs.length)throw Error('Não encontrei as linhas superior e inferior da grade. Inclua a grade completa na foto.');
+ // A última linha horizontal longa é a base da grade; a penúltima é o topo.
+ pairs.sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+ let [top,bottom]=pairs[0],gh=bottom-top;
+ // Linhas verticais contínuas identificam o começo e o fim dos dez blocos.
+ const y1=Math.floor(top+gh*.18),y2=Math.ceil(bottom-gh*.04);
+ const counts=new Uint32Array(w);
+ for(let y=y1;y<y2;y++)for(let x=0;x<w;x++)counts[x]+=dark[y*w+x];
+ const xs=[];
+ for(let x=0;x<w;x++)if(counts[x]>.78*(y2-y1))xs.push(x);
+ const xgroups=groupsFromPositions(xs,2);
+ if(xgroups.length<19)throw Error('Não reconheci as dez colunas da grade. Centralize o cartão e fotografe de frente.');
+ const left=mean(xgroups[0]),right=mean(xgroups[xgroups.length-1]);
+ const pitch=(right-left)/10;
+ if(pitch<22||left<0||right>w)throw Error('Dimensões da grade inconsistentes. Faça outra captura.');
+ const unitCenters=[];
+ for(let q=0;q<10;q++){
+  const target0=left+(q+.57)*pitch,target1=left+(q+.79)*pitch;
+  const candidates=[];
+  let curr=[];
+  const xstart=Math.max(0,Math.floor(left+(q+.46)*pitch));
+  const xend=Math.min(w-1,Math.ceil(left+(q+.87)*pitch));
+  for(let x=xstart;x<=xend;x++){
+   if(counts[x]>.40*(y2-y1))curr.push(x);
+   else if(curr.length){candidates.push(mean(curr));curr=[];}
+  }
+  if(curr.length)candidates.push(mean(curr));
+  if(candidates.length<2)throw Error('Não encontrei os quadradinhos da questão '+(q+1)+'.');
+  const x0=candidates.reduce((best,x)=>Math.abs(x-target0)<Math.abs(best-target0)?x:best);
+  const x1=candidates.reduce((best,x)=>Math.abs(x-target1)<Math.abs(best-target1)?x:best);
+  if(x1-x0<pitch*.12||x1-x0>pitch*.35)throw Error('Posicionamento incerto dos quadradinhos Q'+(q+1)+'.');
+  unitCenters.push((x0+x1)/2);
+ }
+ function density(x,y,rx,ry){
+  let cnt=0,n=0;
+  for(let yy=Math.max(0,Math.round(y-ry));yy<=Math.min(h-1,Math.round(y+ry));yy++){
+   for(let xx=Math.max(0,Math.round(x-rx));xx<=Math.min(w-1,Math.round(x+rx));xx++){
+    cnt+=dark[yy*w+xx];n++;
+   }
+  }
+  return n?cnt/n:0;
+ }
+ const results=[];
+ const rx=Math.max(2,pitch*.04),ry=Math.max(1,gh*.009);
+ for(let q=0;q<10;q++){
+  const digits=[],confidences=[];
+  for(const col of ['dezena','unidade']){
+   const center=unitCenters[q]-(col==='dezena'?.33*pitch:0);
+   const scores=[];
+   for(let d=0;d<(col==='dezena'?2:10);d++){
+    const cy=top+gh*(.149+.0855*d);
+    scores.push(density(center,cy,rx,ry));
+   }
+   const ranked=scores.map((value,digit)=>({value,digit})).sort((a,b)=>b.value-a.value);
+   digits.push(ranked[0].digit);
+   confidences.push({best:ranked[0].value,margin:ranked[0].value-ranked[1].value});
+  }
+  const value=10*digits[0]+digits[1];
+  const reliable=value<=15&&confidences.every(c=>c.best>=.62&&c.margin>=.28);
+  results.push({value,digits,reliable,confidences});
+ }
+ // Deteção visual: cores indicam as posições efetivamente analisadas.
+ draw();
+ const rxdraw=Math.max(4,pitch*.055),rydraw=Math.max(3,gh*.015);
+ for(let q=0;q<10;q++)for(let col=0;col<2;col++){
+  const d=results[q].digits[col],center=unitCenters[q]-(col===0?.33*pitch:0),cy=top+gh*(.149+.0855*d);
+  cx.strokeStyle=results[q].reliable?'#16a34a':'#dc2626';
+  cx.lineWidth=Math.max(2,w/650);
+  cx.strokeRect(center-rxdraw,cy-rydraw,2*rxdraw,2*rydraw);
+ }
+ return results;
 }
 document.getElementById('analisar').onclick=()=>{
-  if(!img){estado.textContent='Primeiro selecione uma foto do cartão.';return;}if(autoMode&&points.length!==4)automaticReference();if(points.length!==4){estado.textContent='No modo manual, marque os quatro quadrados de referência.';return;}
-  draw();
-  const pix=cx.getImageData(0,0,c.width,c.height).data;
-  const pitch=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)/9;
-  const r=Math.max(2,Math.round(pitch*0.08));
-  answers=[];
-  let html='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Conferência</th></tr>';
-  for(let question=0;question<10;question++){
-    let pair=[],uncertain=false;
-    for(const column of ['dezena','unidade']){
-      const max=column==='dezena'?2:10;
-      const vals=[];
-      for(let digit=0;digit<max;digit++){
-        const p=xy(question,digit,column);
-        vals.push(density(pix,p.x,p.y,r));
-      }
-      const sorted=vals.map((v,d)=>({v,d})).sort((a,b)=>b.v-a.v);
-      pair.push(sorted[0].d);
-      if(sorted[0].v<.28 || (sorted[1] && sorted[0].v-sorted[1].v<.12))uncertain=true;
-    }
-    const sum=pair[0]*10+pair[1];
-    if(sum>15)uncertain=true;
-    answers.push({sum,uncertain});
-    html+='<tr><td>Q'+String(question+1).padStart(2,'0')+'</td><td>'+pair[0]+'</td><td>'+pair[1]+'</td><td><input aria-label="Soma questão '+(question+1)+'" type="number" min="0" max="15" step="1" data-q="'+question+'" value="'+sum+'" style="width:65px"></td><td class="'+(uncertain?'warn':'')+'">'+(uncertain?'Revisar':'Conferir')+'</td></tr>';
-  }
-  html+='</table><p><small>Leitura experimental para o cartão em colunas verticais, baseada no PSS UEPG 2026. Verifique TODAS as somas antes de salvar.</small></p>';
-  resultado.innerHTML=html;
-  document.getElementById('enviar').disabled=false;
-  estado.textContent='Confira as 10 respostas. Não salve sem conferir a leitura.';
+ if(!img){estado.textContent='Selecione a fotografia do cartão primeiro.';return;}
+ let out;
+ try{out=detectAndRead()}catch(e){
+  answers=null;resultado.innerHTML='<p class="warn">'+e.message+'</p>';
+  document.getElementById('enviar').disabled=true;
+  estado.textContent='Leitura interrompida: a grade não foi localizada com precisão.';
+  return;
+ }
+ answers=out;
+ let html='<table><tr><th>Questão</th><th>Dezena</th><th>Unidade</th><th>Soma</th><th>Confiança</th></tr>';
+ for(let i=0;i<10;i++){
+  const r=out[i];
+  html+='<tr><td>Q'+String(i+1).padStart(2,'0')+'</td><td>'+r.digits[0]+'</td><td>'+r.digits[1]+'</td><td><input type="number" aria-label="Soma Q'+(i+1)+'" data-q="'+i+'" min="0" max="15" value="'+r.value+'" style="width:66px"></td><td class="'+(r.reliable?'':'warn')+'">'+(r.reliable?'Detectado':'Revisar')+'</td></tr>';
+ }
+ html+='</table><p><small>Contornos verdes indicam os campos analisados. A confirmação final é obrigatória antes de salvar notas.</small></p>';
+ resultado.innerHTML=html;
+ const all=out.every(r=>r.reliable);
+ document.getElementById('enviar').disabled=!all;
+ estado.textContent=all?'10 respostas detectadas. Confira com o cartão antes de enviar.':'Há respostas incertas: nenhuma será enviada. Faça outra fotografia mais reta e nítida.';
 };
 document.getElementById('enviar').onclick=()=>{const inputs=[...resultado.querySelectorAll('input[data-q]')];if(inputs.length!==10)return;const marks=inputs.map(x=>Number(x.value));if(marks.some(v=>!Number.isInteger(v)||v<0||v>15)){alert('Corrija as respostas: devem ficar entre 00 e 15.');return;}if(!confirm('Conferiu visualmente as 10 respostas? Elas NÃO serão salvas até clicar Salvar no corretor.'))return;localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks,timestamp:Date.now()}));location.href='index.html?omr=1';};
 </script></body></html>
