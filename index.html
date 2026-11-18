@@ -98,6 +98,11 @@
           <select id="selAluno" onchange="onAlunoChange()" style="flex:3;min-width:200px;"></select>
         </div>
         <div id="studentMeta" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-warn" onclick="resetCorrections('student')">🗑️ Excluir lançamento / Resetar nota deste aluno</button>
+          <span style="font-size:12px;color:var(--muted)">A correção deste aluno volta a Pendente no aplicativo e no Google Sheets.</span>
+        </div>
+        <p id="resetInfo" style="font-size:13px;color:#9a3412;margin-top:8px" aria-live="polite"></p>
       </div>
 
       <div class="card">
@@ -110,6 +115,14 @@
           <button class="btn btn-ok" style="flex:2;" onclick="saveCurrentStudent()">💾 Salvar & Sincronizar Nota</button>
           <button class="btn btn-outline" style="flex:1;" onclick="clearBubbles()">Limpar</button>
         </div>
+        <details style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px">
+          <summary style="font-weight:600;cursor:pointer">🧹 Reiniciar correções de teste (turma ou todas)</summary>
+          <p style="font-size:12px;color:var(--muted)">Apaga os lançamentos de teste e deixa os alunos como Pendentes, preservando provas, QR Codes, nomes e fórmulas. Exige confirmação.</p>
+          <div class="row">
+            <button class="btn btn-warn" onclick="resetCorrections('class')">Resetar turma selecionada</button>
+            <button class="btn btn-warn" onclick="resetCorrections('all')">Resetar todos os 46 alunos</button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -156,16 +169,6 @@
           <button class="btn btn-primary" onclick="testSheetsConnection()">🧪 Testar Conexão</button>
           <button class="btn btn-ok" onclick="syncWithSheets()">🔄 Sincronizar Agora</button>
           <button class="btn btn-outline" onclick="pullFromSheets()">⬇️ Atualizar status da planilha</button>
-        </div>
-        <div style="border-top:1px solid #e2e8f0;margin-top:18px;padding-top:14px;">
-          <strong>🧹 Resetar correções de teste</strong>
-          <p style="font-size:13px;color:var(--muted);">Zera as correções no aplicativo e na planilha, sem excluir alunos, QR Codes, provas ou fórmulas. Use antes de aplicar a prova de verdade.</p>
-          <div class="row">
-            <button class="btn btn-outline" onclick="resetCorrections('student')">Resetar aluno selecionado</button>
-            <button class="btn btn-warn" onclick="resetCorrections('class')">Resetar turma selecionada</button>
-            <button class="btn btn-warn" onclick="resetCorrections('all')">Resetar todos os 46 alunos</button>
-          </div>
-          <p class="state" id="resetInfo" style="font-size:13px;color:#9a3412;margin:8px 0 0"></p>
         </div>
         <p id="queueInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
         <p id="sheetsDiagnostic" style="font-size:13px;color:#b45309;font-weight:700;"></p>
