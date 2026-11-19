@@ -3,10 +3,12 @@ on:
   push:
     paths:
       - 'omr-worker.js'
+      - 'omr-live-decimal-worker.js'
       - 'printed-card.js'
       - 'scanner.html'
       - 'android-native/tests/fixtures/printed-matrix.ts'
       - 'tests/web-omr.test.cjs'
+      - 'tests/web-omr-live.test.cjs'
       - '.github/workflows/web-omr.yml'
   workflow_dispatch:
 jobs:
@@ -18,3 +20,4 @@ jobs:
         with:
           node-version: '22'
       - run: node tests/web-omr.test.cjs
+      - run: node tests/web-omr-live.test.cjs
