@@ -1,0 +1,47 @@
+name: PSS1 Android camera emulator verification
+on:
+  workflow_run:
+    workflows:
+      - Build PSS1 Android APK
+    types:
+      - completed
+permissions:
+  contents: read
+  actions: read
+jobs:
+  camera-smoke:
+    # Roda somente o APK corrigido; builds antigos não passam por este teste.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_sha == '03b581ae0867a364b741c1a8cbe8a4576f87423a' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact release APK from successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: PSS1-Android-Release
+          path: /tmp/pss1-apk
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable hardware virtualization
+        run: |
+          sudo chmod 666 /dev/kvm || true
+      - name: Open QR and process actual camera frames inside Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 4
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back virtualscene -camera-front emulated
+          script: bash .github/scripts/android-camera-smoke.sh
+      - name: Save diagnostics and camera screenshots (internal)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Camera-Emulator-Diagnostics
+          path: camera-smoke-results/
+          if-no-files-found: ignore
