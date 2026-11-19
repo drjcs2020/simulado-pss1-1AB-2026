@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Alert,ActivityIndicator,Image,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import {CameraView,useCameraPermissions} from 'expo-camera';
 import {ANSWER_KEYS,APP_TITLE,ClassId,ExamType,ROSTERS,SCHOOL,Student,lookupStudent,parseStudentQR} from './src/data';
 import {grade,Mark,scoreQuestion,toggleBit} from './src/scoring';
@@ -18,7 +19,15 @@ function Bubble({label,active,onPress}:{label:string,active:boolean,onPress:()=>
 function Button({label,onPress,kind='primary',disabled=false}:{label:string,onPress:()=>void,kind?:'primary'|'green'|'light'|'orange',disabled?:boolean}){
  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,styles[kind],disabled&&{opacity:.45}]}><Text style={[styles.buttonText,kind==='light'&&{color:'#1b3554'}]}>{label}</Text></Pressable>;
 }
-function CardCamera({onStable,onExit,onReview,stable}:{onStable:(values:number[],boxes:CardBox[])=>void;onExit:()=>void;onReview:()=>void;stable:boolean}){
+async function readCapturedPhoto(uri:string){
+ const ctx=ImageManipulator.ImageManipulator.manipulate(uri,{maxWidth:960,maxHeight:960});
+ ctx.resize({width:640});
+ const img=await ctx.renderAsync();
+ const saved=await img.saveAsync({format:ImageManipulator.SaveFormat.JPEG,compress:.87,base64:true});
+ if(!saved.base64)throw Error('A câmera não gerou JPEG');
+ return {reading:scanPhotoBase64(saved.base64),saved};
+}
+function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(values:number[],boxes:CardBox[])=>void;onPartial:(values:Mark[])=>void;onExit:()=>void;onReview:()=>void;stable:boolean}){
  const camera=useRef<CameraView|null>(null);
  const [permission,requestPermission]=useCameraPermissions();
  const [ready,setReady]=useState(false);
@@ -42,15 +51,11 @@ function CardCamera({onStable,onExit,onReview,stable}:{onStable:(values:number[]
     // Expo Camera: captura local, sem frame processor, Skia ou Vulkan.
     const picture=await camera.current?.takePictureAsync({quality:.84,skipProcessing:false,shutterSound:false});
     if(!picture?.uri)throw Error('A câmera não entregou a imagem');
-    const ctx=ImageManipulator.ImageManipulator.manipulate(picture.uri,{maxWidth:960,maxHeight:960});
-    ctx.resize({width:640});
-    const img=await ctx.renderAsync();
-    const saved=await img.saveAsync({format:ImageManipulator.SaveFormat.JPEG,compress:.87,base64:true});
-    if(!saved.base64)throw Error('A câmera não gerou JPEG');
-    const reading=scanPhotoBase64(saved.base64);
+    const {reading,saved}=await readCapturedPhoto(picture.uri);
     const detection=reading.detection;
     const valid=reading.accepted;
     if(stopped)return;
+    if(valid>0)onPartial(detection.results.map(r=>r.valid?r.value:null));
     setFeedback(valid===10?'✓ 10/10 IDENTIFICADAS':valid>0?`${valid}/10 IDENTIFICADAS`:'● PROCURANDO AS DEZ COLUNAS');
     const next=stableReading(previous.current,detection);
     previous.current={signature:next.signature,count:next.count};
@@ -78,7 +83,7 @@ function CardCamera({onStable,onExit,onReview,stable}:{onStable:(values:number[]
   };
   timer=setTimeout(capture,600);
   return ()=>{stopped=true;if(timer)clearTimeout(timer)};
- },[permission?.granted,ready,stable,onStable]);
+ },[permission?.granted,ready,stable,onStable,onPartial]);
  const canShow=stable&&snapshot?.detection.boxes.length===10;
  const circles: Array<{x:number;y:number;r:number;key:string}>=[];
  if(canShow){
@@ -137,6 +142,24 @@ export default function App(){
  const chooseStudent=(n:number)=>{setStudentNumber(n);setMarks(Array(10).fill(null));edited.current.clear();setIsStable(false);setStatus('')};
  const enterQR=()=>{qrHandling.current=false;setStatus('');setMode('qr')};
  const enterOMR=()=>{edited.current.clear();setLastBoxes([]);setIsStable(false);setStatus('');setLiveFeedback('');setMode('omr')};
+ const partialCallback=useCallback((values:Mark[])=>{
+  setMarks(current=>values.map((v,i)=>edited.current.has(i)?current[i]:v??current[i]));
+ },[]);
+ const pickPhoto=async()=>{
+  setBusy(true);
+  try{
+   const selected=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],quality:1,allowsEditing:false});
+   if(selected.canceled||!selected.assets?.length)return;
+   const {reading}=await readCapturedPhoto(selected.assets[0].uri);
+   const num=reading.accepted;
+   if(num===0){setStatus('Nenhuma resposta reconhecida. Enquadre somente o cartão e tente uma foto mais nítida.');return;}
+   edited.current.clear();
+   setMarks(reading.detection.results.map(q=>q.valid?q.value:null));
+   setIsStable(num===10);
+   setStatus(num===10?'10 respostas identificadas pela foto. Confira e salve.':num+'/10 identificadas pela foto. Complete as demais manualmente antes de salvar.');
+  }catch(e:any){setStatus('Erro ao ler foto: '+(e?.message||String(e)))}
+  finally{setBusy(false)}
+ };
  const stableCallback=useCallback((values:number[],boxes:CardBox[])=>{
   Vibration.vibrate(75);
   setLastBoxes(boxes);
@@ -193,14 +216,14 @@ export default function App(){
    <View style={styles.cameraTop}><Pressable onPress={()=>{qrHandling.current=false;setMode('none')}} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable></View>
    {!!status&&<View style={{position:'absolute',top:96,left:16,right:16}}><Text style={styles.whiteText}>{status}</Text></View>}
   </View>;
- if(mode==='omr')return <CardCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} stable={isStable}/>;
+ if(mode==='omr')return <CardCamera onStable={stableCallback} onPartial={partialCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} stable={isStable}/>;
  return <View style={styles.main}>
   <View style={styles.header}><Text style={styles.appName}>{APP_TITLE}</Text><Text style={styles.school}>{SCHOOL}</Text></View>
   <View style={styles.tabs}>{([['correct','Escanear & Corrigir'],['grades','Boletim'],['stats','Estatísticas'],['config','Planilha']] as const).map(([id,title])=>
    <Pressable key={id} onPress={()=>setTab(id)} style={[styles.tab,tab===id&&styles.tabActive]}><Text style={[styles.tabText,tab===id&&{color:WHITE}]}>{title}</Text></Pressable>)}</View>
   <ScrollView contentContainerStyle={{padding:10,paddingBottom:28}}>
    {tab==='correct'&&<>
-    <View style={styles.card}><View style={styles.row}><Button label="📷 Ler QR Code" onPress={enterQR}/><Button label="▣ Ler cartão" kind="green" onPress={enterOMR}/></View>
+    <View style={styles.card}><View style={styles.row}><Button label="📷 Ler QR Code" onPress={enterQR}/><Button label="▣ Ler cartão" kind="green" onPress={enterOMR}/><Button label="Ler foto" kind="light" onPress={pickPhoto} disabled={busy}/></View>
       <View style={styles.row}><View style={{flex:1}}><Text style={styles.tiny}>Turma</Text>
        <View style={styles.row}>{(['1A','1B'] as const).map(t=><Button key={t} label={t} kind={t===group?'primary':'light'} onPress={()=>chooseGroup(t)}/>)}</View></View></View>
       <Text style={styles.tiny}>Aluno</Text>
