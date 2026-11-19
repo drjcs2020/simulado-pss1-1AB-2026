@@ -206,6 +206,13 @@ function renderAnswers(){
 }
 function review(){
  if(state.mode!=='camera')return;
+ // Ao tocar Conferir, aproveita as respostas do último quadro analisado,
+ // mesmo que ainda não tenham sido repetidas por dois frames.
+ if(state.results?.results?.length===10){
+  state.results.results.forEach((entry,q)=>{
+   if(!state.edited.has(q))state.marks[q]=entry.valid?entry.value:null;
+  });
+ }
  stopCamera();state.mode='review';
  $('camera').hidden=true;$('reviewPanel').hidden=false;
  renderAnswers();
