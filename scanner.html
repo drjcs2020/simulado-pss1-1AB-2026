@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173b75"><title>Leitor de cartão PSS</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;font:15px system-ui,-apple-system,sans-serif;color:#10243e;background:#eff3f8}button{font:inherit;border:0;border-radius:10px;padding:13px 15px;background:#1b447f;color:white;font-weight:700;touch-action:manipulation;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e8eef8;color:#143b71}button.good{background:#13764a}header{padding:6px 12px;background:white;border-bottom:1px solid #dbe3ee;display:flex;justify-content:space-between;align-items:center;gap:8px}h1{font-size:15px;margin:0}#student{font-size:12px;color:#546a83;margin-top:4px}.headerback{background:#eef2f8;color:#1e3a65;padding:9px 14px}.toolbar{display:flex;gap:8px;padding:9px 12px;background:white}.toolbar button,.toolbar label{flex:1;min-width:0}.filelabel{border:1px solid #afc0d4;border-radius:9px;background:#f1f6fc;padding:9px;text-align:center;font-weight:700;color:#1c426f;cursor:pointer}.filelabel input{display:none}.message{font-size:13px;padding:6px 12px;color:#35516c;background:white;min-height:27px}#viewport{position:relative;background:#060b14;overflow:hidden;height:72dvh;min-height:340px;display:flex;justify-content:center;align-items:center}#viewport video,#viewport canvas{display:none;max-width:100%;max-height:100%;object-fit:contain}#viewport.mode-live video{display:block;width:100%;height:100%}#viewport.mode-live canvas#overlay{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#viewport.mode-photo canvas#snapshot{display:block;width:100%;height:100%;touch-action:manipulation}.capture-controls{display:none}body.camera-active header,body.camera-active .toolbar,body.camera-active #answersPanel,body.camera-active #status{display:none}body.camera-active #viewport{position:fixed;inset:0;height:100dvh;width:100vw;z-index:20;border-radius:0}body.camera-active #overlay{pointer-events:auto!important;touch-action:manipulation}body.camera-active .capture-controls{align-items:end}body.camera-active .capture-controls{pointer-events:auto}body.camera-active #capture,body.camera-active #cancelCamera{touch-action:manipulation;pointer-events:auto}body.camera-active .capture-controls{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;gap:12px;justify-content:center;align-items:center;padding:14px 14px max(18px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.83));color:white}body.camera-active .capture-controls button{background:#fff;color:#133760}body.camera-active #capture{border-radius:14px;min-width:100px;min-height:54px;flex:none;border:2px solid #ffffff6b;background:white;font-size:14px}body.camera-active #cancelCamera{width:76px;flex:none;background:#24374be0;color:white}body.camera-active #liveInfo{min-width:60px;flex:1}#answersPanel{padding:8px;max-width:980px;margin:0 auto}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.answer{border:1px solid #d1dcec;border-radius:11px;padding:9px 5px;background:white}.answer.missing{background:#fff6ea}.answer .marks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:7px}.answer button.mark{border:1px solid #9baec8;padding:9px 0;min-width:0;border-radius:6px;background:white;color:#183c65;font-size:12px;font-weight:800}.answer button.mark.selected{background:#16477c;color:white;border-color:#16477c}.answer .sum{text-align:center;font-weight:800;font-size:19px;margin-top:7px}.actionrow{display:flex;gap:8px;margin:12px 0}.actionrow>*{flex:1}.assist{font-size:12px;color:#536882;margin:8px 0}@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.answer button.mark{padding:12px 0}#viewport{height:72dvh;min-height:330px}}@media(max-width:350px){.answer button.mark{font-size:11px}}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font:15px system-ui,-apple-system,sans-serif;color:#10243e;background:#eff3f8}button{font:inherit;border:0;border-radius:10px;padding:13px 15px;background:#1b447f;color:white;font-weight:700;touch-action:manipulation;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e8eef8;color:#143b71}button.good{background:#13764a}header{padding:6px 12px;background:white;border-bottom:1px solid #dbe3ee;display:flex;justify-content:space-between;align-items:center;gap:8px}h1{font-size:15px;margin:0}#student{font-size:12px;color:#546a83;margin-top:4px}.headerback{background:#eef2f8;color:#1e3a65;padding:9px 14px}.toolbar{display:flex;gap:8px;padding:9px 12px;background:white}.toolbar button,.toolbar label{flex:1;min-width:0}.filelabel{border:1px solid #afc0d4;border-radius:9px;background:#f1f6fc;padding:9px;text-align:center;font-weight:700;color:#1c426f;cursor:pointer}.filelabel input{display:none}.message{font-size:13px;padding:6px 12px;color:#35516c;background:white;min-height:27px}#viewport{position:relative;background:#060b14;overflow:hidden;height:72dvh;min-height:340px;display:flex;justify-content:center;align-items:center}#viewport video,#viewport canvas{display:none;max-width:100%;max-height:100%;object-fit:contain}#viewport.mode-live video{display:block;width:100%;height:100%}#viewport.mode-live canvas#overlay{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#viewport.mode-photo canvas#snapshot{display:block;width:100%;height:100%;touch-action:manipulation}.capture-controls{display:none}body.camera-active header,body.camera-active .toolbar,body.camera-active #answersPanel,body.camera-active #status{display:none}body.camera-active #viewport{position:fixed;inset:0;height:100dvh;width:100vw;z-index:20;border-radius:0}body.camera-active #overlay{pointer-events:auto!important;touch-action:manipulation}body.camera-active .capture-controls{align-items:end}body.camera-active .capture-controls{pointer-events:auto}body.camera-active #capture,body.camera-active #cancelCamera{touch-action:manipulation;pointer-events:auto}body.camera-active .capture-controls{display:flex;position:fixed;bottom:72px;left:0;right:0;z-index:30;gap:12px;justify-content:center;align-items:center;padding:14px 14px max(18px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.83));color:white}body.camera-active .capture-controls button{background:#fff;color:#133760}body.camera-active #capture{border-radius:14px;min-width:100px;min-height:54px;flex:none;border:2px solid #ffffff6b;background:white;font-size:14px}body.camera-active #cancelCamera{width:76px;flex:none;background:#24374be0;color:white}body.camera-active #liveInfo{min-width:60px;flex:1}#answersPanel{padding:8px;max-width:980px;margin:0 auto}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.answer{border:1px solid #d1dcec;border-radius:11px;padding:9px 5px;background:white}.answer.missing{background:#fff6ea}.answer .marks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:7px}.answer button.mark{border:1px solid #9baec8;padding:9px 0;min-width:0;border-radius:6px;background:white;color:#183c65;font-size:12px;font-weight:800}.answer button.mark.selected{background:#16477c;color:white;border-color:#16477c}.answer .sum{text-align:center;font-weight:800;font-size:19px;margin-top:7px}.actionrow{display:flex;gap:8px;margin:12px 0}.actionrow>*{flex:1}.assist{font-size:12px;color:#536882;margin:8px 0}@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.answer button.mark{padding:12px 0}#viewport{height:72dvh;min-height:330px}}@media(max-width:350px){.answer button.mark{font-size:11px}}
 </style></head>
 <body>
 <header><div><h1>Leitor de cartão</h1><div id="student"></div></div><button class="headerback" id="back" type="button">Voltar</button></header>
 <div class="toolbar"><button id="open" type="button">Abrir câmera</button><label for="file" class="filelabel">Escolher imagem<input id="file" type="file" accept="image/*"></label></div>
 <div id="status" class="message" role="status" aria-live="polite"></div>
 <div id="viewport"><video id="video" autoplay muted playsinline webkit-playsinline></video><canvas id="overlay"></canvas><canvas id="snapshot" width="800" height="600"></canvas></div>
-<div class="capture-controls"><button type="button" id="cancelCamera">Sair</button><button type="button" id="capture">Conferir</button><div id="liveInfo" style="flex:1;text-align:center;font-size:12px;font-weight:700;text-shadow:0 1px 3px #000">0/10 lidas</div></div>
+<div class="capture-controls"><button type="button" id="cancelCamera">Sair</button><button type="button" id="capture">Conferir respostas</button><div id="liveInfo" style="flex:1;text-align:center;font-size:12px;font-weight:700;text-shadow:0 1px 3px #000">0/10 lidas</div></div>
 <section id="answersPanel"><div class="actionrow"><button id="analyze" class="secondary" type="button">Ler novamente</button><button id="retake" class="secondary" type="button">Abrir câmera</button></div>
 <div id="answers" class="grid"></div>
 <div class="actionrow"><button id="send" class="good" type="button" disabled>Usar respostas</button></div></section>
@@ -62,29 +62,22 @@ function drawSnapshot(source){
 }
 function drawBoxes(result,fromMarks=false){
  overlayCtx.clearRect(0,0,overlay.width,overlay.height);
- const target=state.frozen?ctx:overlayCtx;
  if(state.frozen&&state.source)drawSnapshot(state.source);
- if(!result||!result.boxes||result.boxes.length!==10)return;
- target.lineWidth=Math.max(2,(state.frozen?snapshot.width:overlay.width)/550);
- function point(q,u,v){
-  if(!q)return null;
-  return {x:(1-u)*(1-v)*q[0].x+u*(1-v)*q[1].x+u*v*q[2].x+(1-u)*v*q[3].x,
-          y:(1-u)*(1-v)*q[0].y+u*(1-v)*q[1].y+u*v*q[2].y+(1-u)*v*q[3].y};
- }
- function strokePolygon(points){
-  target.beginPath();points.forEach((p,i)=>i?target.lineTo(p.x,p.y):target.moveTo(p.x,p.y));target.closePath();target.stroke();
- }
- result.boxes.forEach((b,q)=>{
-  const value=fromMarks?state.marks[q]:(result.results[q]?.valid?result.results[q].value:null);
-  target.strokeStyle=value===null?'#f59e0b':'#16c784';
-  if(b.quad)strokePolygon(b.quad);
-  else target.strokeRect(b.x,b.y,b.w,b.h);
-  if(value===null)return;
-  [[.329,Math.floor(value/10)],[.673,value%10]].forEach(([u,digit])=>{
-   const v=.149+.0855*digit;
-   if(b.quad)strokePolygon([point(b.quad,u-.058,v-.02),point(b.quad,u+.058,v-.02),point(b.quad,u+.058,v+.02),point(b.quad,u-.058,v+.02)]);
-   else{const x=b.x+b.w*u,y=b.y+b.h*v;target.strokeRect(x-b.w*.06,y-b.h*.02,b.w*.12,b.h*.04)}
-  });
+ if(!result?.boxes||result.boxes.length!==10)return;
+ const target=state.frozen?ctx:overlayCtx;
+ target.lineWidth=Math.max(2,(state.frozen?snapshot.width:overlay.width)/410);
+ result.boxes.forEach((box,q)=>{
+  const answer=fromMarks?state.marks[q]:(result.results[q]?.valid?result.results[q].value:null);
+  if(answer===null)return;
+  const cols=result.results[q]?.columns||[];
+  for(let k=0;k<4;k++){
+   const bit=[1,2,4,8][k];if(!(answer&bit))continue;
+   const col=cols[k];if(!col)return;
+   const x=col.x??(box.x+box.w*[.224,.382,.539,.696][k]);
+   const y=col.y??(box.y+box.h*.5);
+   target.beginPath();target.strokeStyle='#16e375';
+   target.arc(x,y,Math.max(5,box.h*.28),0,2*Math.PI);target.stroke();
+  }
  });
 }
 let worker=null,workerSeq=0,workerTask=null;
@@ -105,7 +98,7 @@ function analyzeInWorker(sourceCanvas=snapshot,live=false){
  image.height=Math.max(1,Math.round(sourceCanvas.height*factor));
  image.getContext('2d',{willReadFrequently:true}).drawImage(sourceCanvas,0,0,image.width,image.height);
  const payload=image.getContext('2d',{willReadFrequently:true}).getImageData(0,0,image.width,image.height);
- if(!worker)worker=new Worker('omr-worker.js?v=20261118f');
+ if(!worker)worker=new Worker('omr-worker.js?v=20261119b');
  const taskId=++workerSeq;
  state.recognizing=true;
  $('analyze').disabled=true;
@@ -129,6 +122,11 @@ function analyzeInWorker(sourceCanvas=snapshot,live=false){
     m.result.boxes.forEach(b=>{
      b.x*=ratio;b.y*=ratio;b.w*=ratio;b.h*=ratio;
      if(b.quad)b.quad.forEach(p=>{p.x*=ratio;p.y*=ratio});
+     const row=m.result.results[m.result.boxes.indexOf(b)];
+     for(const col of row?.columns||[]){
+      if(col.x!==undefined)col.x*=ratio;
+      if(col.y!==undefined)col.y*=ratio;
+     }
     });
    }
    resolve(m.result);
@@ -166,20 +164,14 @@ function drawLiveOverlay(result){
  const pos=videoRect();if(!pos)return;
  const ratio=video.videoWidth/state.analysisCanvas.width;
  const map=p=>({x:pos.left+p.x*ratio*pos.scale,y:pos.top+p.y*ratio*pos.scale});
- overlayCtx.lineWidth=2.5;
  result.boxes.forEach((box,q)=>{
-  if(box.quad?.length===4){
-   overlayCtx.strokeStyle='#27dc88';overlayCtx.globalAlpha=.55;overlayCtx.beginPath();
-   box.quad.map(map).forEach((p,i)=>i?overlayCtx.lineTo(p.x,p.y):overlayCtx.moveTo(p.x,p.y));
-   overlayCtx.closePath();overlayCtx.stroke();overlayCtx.globalAlpha=1;
-  }
-  const columns=result.results[q]?.columns||[];
-  for(let col=0;col<columns.length;col++){
-   const entry=columns[col];
-   if(entry.digit===null||entry.digit===undefined)continue;
-   const center=map(livePoint(box,col===0?.329:.673,.149+.0855*entry.digit));
-   overlayCtx.beginPath();overlayCtx.strokeStyle='#21ed78';overlayCtx.lineWidth=4;
-   overlayCtx.arc(center.x,center.y,Math.max(8,box.w*ratio*pos.scale*.075),0,2*Math.PI);
+  const cols=result.results[q]?.columns||[];
+  for(let k=0;k<4;k++){
+   if(cols[k]?.digit===null||cols[k]?.digit===undefined)continue;
+   const x=cols[k].x??box.x+box.w*[.224,.382,.539,.696][k],y=cols[k].y??box.y+box.h*.5;
+   const center=map({x,y});
+   overlayCtx.beginPath();overlayCtx.strokeStyle='#00ed76';overlayCtx.lineWidth=4;
+   overlayCtx.arc(center.x,center.y,Math.max(8,box.h*ratio*pos.scale*.3),0,2*Math.PI);
    overlayCtx.stroke();
   }
  });
@@ -217,21 +209,23 @@ overlay.addEventListener('pointerdown',event=>{
  if(!state.stream||!state.liveResults?.boxes?.length)return;
  const rect=overlay.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
  const pos=videoRect();if(!pos)return;
- const k=state.analysisCanvas.width/video.videoWidth;
- const px=(x-pos.left)/pos.scale*k,py=(y-pos.top)/pos.scale*k;
+ const ratio=video.videoWidth/state.analysisCanvas.width;
+ const px=(x-pos.left)/(ratio*pos.scale),py=(y-pos.top)/(ratio*pos.scale);
+ let nearest=null;
  for(let q=0;q<10;q++){
-  const b=state.liveResults.boxes[q];
-  if(px<b.x||px>b.x+b.w||py<b.y||py>b.y+b.h)continue;
-  const v=(py-b.y)/b.h,u=(px-b.x)/b.w,digit=Math.round((v-.149)/.0855);
-  if(digit<0||digit>9)return;
-  const tens=u<.5;if(tens&&digit>1)return;
-  const previous=state.marks[q]??0;
-  const next=tens?digit*10+previous%10:Math.floor(previous/10)*10+digit;
-  if(next>15)return;
-  state.marks[q]=next;state.edited.add(q);
-  renderInputs();$('liveInfo').textContent='Q'+String(q+1).padStart(2,'0')+' = '+String(next).padStart(2,'0');
-  drawLiveOverlay(state.liveResults);return;
+  const box=state.liveResults.boxes[q],cols=state.liveResults.results[q]?.columns||[];
+  for(let k=0;k<4;k++){
+   const col=cols[k];if(!col)continue;
+   const dx=px-(col.x??box.x+box.w*[.224,.382,.539,.696][k]);
+   const dy=py-(col.y??box.y+box.h*.5),distance=dx*dx+dy*dy;
+   if(!nearest||distance<nearest.distance)nearest={q,k,distance,radius:Math.max(10,box.h*.55)};
+  }
  }
+ if(!nearest||nearest.distance>nearest.radius*nearest.radius)return;
+ const bit=[1,2,4,8][nearest.k],q=nearest.q;
+ state.marks[q]=(state.marks[q]??0)^bit;state.edited.add(q);
+ renderInputs();drawLiveOverlay(state.liveResults);
+ $('liveInfo').textContent='Q'+String(q+1).padStart(2,'0')+' = '+String(state.marks[q]).padStart(2,'0');
 });
 async function openCamera(){
  if(state.loading)return;
@@ -270,9 +264,8 @@ $('capture').onclick=()=>{
   // Respostas são mantidas; coordenadas do vídeo não são reutilizadas na foto maior.
   state.scanSession++;closeCamera();showSource();
   drawSnapshot(frame);
-  message('Imagem capturada.');
-  // Sem leitura automática bloqueante neste clique.
-  // O botão Ler marcações faz a análise separadamente.
+  message('Imagem capturada. Lendo as quatro proposições…');
+  setTimeout(()=>$('analyze').click(),80);
  }catch(err){
   closeCamera();state.frozen=false;showSource();
   message('Falha ao capturar: '+String(err.message||err));
@@ -287,7 +280,8 @@ $('file').onchange=async e=>{
  try{
   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
   state.source=img;drawSnapshot(img);
-  message('Imagem carregada.');
+  message('Imagem carregada. Lendo as quatro proposições…');
+  setTimeout(()=>$('analyze').click(),80);
  }catch(err){message('Falha ao abrir imagem: '+String(err.message||err))}
  finally{URL.revokeObjectURL(url);$('file').value=''}
 };
@@ -306,18 +300,24 @@ $('analyze').onclick=async()=>{
 };
 snapshot.addEventListener('pointerdown',e=>{
  if(!state.frozen||!state.result||state.result.boxes.length!==10)return;
- const rect=snapshot.getBoundingClientRect(),x=(e.clientX-rect.left)*snapshot.width/rect.width,y=(e.clientY-rect.top)*snapshot.height/rect.height;
+ const rect=snapshot.getBoundingClientRect();
+ const x=(e.clientX-rect.left)*snapshot.width/rect.width,y=(e.clientY-rect.top)*snapshot.height/rect.height;
+ let nearest=null;
  for(let q=0;q<10;q++){
-  const b=state.result.boxes[q];
-  if(x<b.x||x>b.x+b.w||y<b.y||y>b.y+b.h)continue;
-  const digit=Math.round(((y-b.y)/b.h-.149)/.0855),tens=(x-b.x)/b.w<.5;
-  if(digit<0||digit>9||(tens&&digit>1))return;
-  const prev=state.marks[q]??0,v=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
-  if(v>15){message('Somatória máxima é 15. Escolha outro quadradinho.');return}
-  state.marks[q]=v;renderInputs();drawBoxes(state.result,true);
-  message('Q'+String(q+1).padStart(2,'0')+' alterada para '+String(v).padStart(2,'0')+'.');
-  return;
+  const box=state.result.boxes[q],cols=state.result.results[q]?.columns||[];
+  for(let k=0;k<4;k++){
+   const col=cols[k];if(!col)continue;
+   const px=col.x??box.x+box.w*[.224,.382,.539,.696][k];
+   const py=col.y??box.y+box.h*.5;
+   const d=(x-px)**2+(y-py)**2;
+   if(!nearest||d<nearest.distance)nearest={q,k,d,radius:Math.max(10,box.h*.55)};
+  }
  }
+ if(!nearest||nearest.d>nearest.radius**2)return;
+ const bit=[1,2,4,8][nearest.k],q=nearest.q;
+ state.marks[q]=(state.marks[q]??0)^bit;state.edited.add(q);
+ renderInputs();drawBoxes(state.result,true);
+ message('Q'+String(q+1).padStart(2,'0')+' = '+String(state.marks[q]).padStart(2,'0'));
 });
 $('send').onclick=()=>{
  if($('send').disabled)return;
