@@ -4,6 +4,18 @@ PKG="br.edu.padrenicolaubaltazar.pss1"
 APK="/tmp/pss1-apk/app-release.apk"
 mkdir -p camera-smoke-results
 test -s "$APK"
+
+echo "Emulator CPU ABI: $(adb shell getprop ro.product.cpu.abi)"
+unzip -l "$APK" | grep -E 'lib/[^/]+/lib(hermes|reactnative|nitro|skia)' | head -25 || true
+dump_diagnostics() {
+  mkdir -p camera-smoke-results
+  adb logcat -d -v threadtime > camera-smoke-results/logcat.txt || true
+  adb shell dumpsys activity activities > camera-smoke-results/activities.txt || true
+  adb exec-out screencap -p > camera-smoke-results/crash-screen.png || true
+  echo "== FATAL EXCEPTION / native load errors =="
+  grep -E -A 20 'FATAL EXCEPTION|UnsatisfiedLinkError|No implementation found|dlopen failed|Fatal signal|AndroidRuntime|ReactNativeJS|expo' camera-smoke-results/logcat.txt | tail -160 || true
+}
+trap 'dump_diagnostics' EXIT
 adb install -r "$APK"
 adb shell pm grant "$PKG" android.permission.CAMERA
 adb shell am start -n "$PKG/.MainActivity"
