@@ -4,8 +4,6 @@ import {CameraView,useCameraPermissions} from 'expo-camera';
 import {Skia,PaintStyle} from '@shopify/react-native-skia';
 import {useAsyncRunner,useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
 import {SkiaCamera} from 'react-native-vision-camera-skia';
-import {useResizer,type GPUFrame} from 'react-native-vision-camera-resizer';
-import {Mat,OpenCV,DataTypes,ColorConversionCodes,ThresholdTypes} from 'react-native-fast-opencv';
 import {scheduleOnRN} from 'react-native-worklets';
 import {useSharedValue} from 'react-native-reanimated';
 import {ANSWER_KEYS,APP_TITLE,ClassId,ExamType,ROSTERS,SCHOOL,Student,lookupStudent,parseStudentQR} from './src/data';
@@ -35,7 +33,6 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
 }){
  const device=useCameraDevice('back');
  const asyncRunner=useAsyncRunner();
- const {resizer,error:resizerError}=useResizer({width:PROCESS_WIDTH,height:PROCESS_HEIGHT,channelOrder:'bgr',dataType:'uint8',pixelLayout:'interleaved',scaleMode:'contain'});
  const tracker=useSharedValue({signature:'',count:0,emitted:''});
  const recent=useSharedValue<Detection|null>(null);
  const lastRun=useSharedValue(0);
@@ -44,9 +41,6 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
  const [previewSize,setPreviewSize]=useState({width:0,height:0});
  const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
  const onFeedbackRN=useCallback((text:string)=>onFeedback(text),[onFeedback]);
- useEffect(()=>{
-  if(resizerError)onFeedback('Processamento CPU ativado; GPU indisponível.');
- },[resizerError,onFeedback]);
  if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
  return <View style={styles.fullScreen} onLayout={e=>setPreviewSize({width:e.nativeEvent.layout.width,height:e.nativeEvent.layout.height})}>
   <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface" pixelFormat="yuv"
@@ -77,38 +71,15 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
     lastRun.value=now;
     const queued=asyncRunner.runAsync(()=>{
      'worklet';
-     let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
      try{
-      let mask:Uint8Array=new Uint8Array(0);
-      let gpuSucceeded=false;
-      if(resizer!=null){
-        try {
-        // GPU rápida, quando Vulkan funciona no aparelho.
-        resized=resizer.resize(frame) as GPUFrame;
-        const pixels=new Uint8Array(resized.getPixelBuffer());
-        src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
-        gray=Mat.create(0,0,DataTypes.CV_8U);
-        bin=Mat.create(0,0,DataTypes.CV_8U);
-        OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
-        OpenCV.threshold(gray,bin,0,255,ThresholdTypes.THRESH_BINARY_INV | ThresholdTypes.THRESH_OTSU);
-        const binary=bin.toBuffer('uint8');
-        mask=new Uint8Array(binary.buffer);
-        gpuSucceeded=true;
-        }catch(_gpuError){
-          // Falha de shader, memória Vulkan ou conversão não impede CPU.
-        }
-      }
-      if(!gpuSucceeded){
-        // Fallback obrigatório: usa o plano de luminância YUV da câmera.
-        // Não depende de Vulkan nem de OpenCV para reconhecer o cartão.
-        const planes=frame.getPlanes();
-        const plane=planes[0];
-        if(!plane)throw Error('Câmera sem plano YUV legível');
-        mask=luminanceToBinary(
-          new Uint8Array(plane.getPixelBuffer()),
-          plane.width,plane.height,plane.bytesPerRow,PROCESS_WIDTH,PROCESS_HEIGHT
-        );
-      }
+      // YUV é legível na CPU; evita Vulkan, GPU Resizer e inicializações nativas frágeis.
+      const planes=frame.getPlanes();
+      const plane=planes[0];
+      if(!plane)throw Error('O quadro da câmera não possui plano YUV');
+      const mask=luminanceToBinary(
+        new Uint8Array(plane.getPixelBuffer()),
+        plane.width,plane.height,plane.bytesPerRow,PROCESS_WIDTH,PROCESS_HEIGHT
+      );
       const output=decodeBinary(mask,PROCESS_WIDTH,PROCESS_HEIGHT);
       const found=output.error?null:output;
       recent.value=found;
@@ -134,7 +105,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
       recent.value=null;
       tracker.value={signature:'',count:0,emitted:tracker.value.emitted};
      }finally{
-      bin?.release();gray?.release();src?.release();resized?.dispose();frame.dispose();
+      frame.dispose();
      }
     });
     if(!queued)frame.dispose();
