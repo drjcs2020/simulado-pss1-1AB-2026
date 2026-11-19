@@ -1,0 +1,32 @@
+name: PSS1 Browser live camera end-to-end
+on:
+  push:
+    paths:
+      - 'omr-live-decimal-worker.js'
+      - 'scanner.html'
+      - 'index.html'
+      - 'tests/browser-live.e2e.cjs'
+      - '.github/workflows/browser-live-e2e.yml'
+  workflow_dispatch:
+jobs:
+  browser-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test driver
+        run: npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Install headless Chrome
+        run: npx playwright install chromium
+      - name: Test live video, green squares and correction flow
+        run: node tests/browser-live.e2e.cjs
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Browser-Live-Scanner-Evidence
+          path: test-output/
+          if-no-files-found: ignore
