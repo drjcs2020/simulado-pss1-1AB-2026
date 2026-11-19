@@ -57,6 +57,13 @@ adb exec-out screencap -p > camera-smoke-results/qr.png
 dump_ui
 tap_text "Sair"
 sleep 4
+# Abre o seletor de foto real do Android e volta, sem encerrar o corretor.
+dump_ui
+tap_text "Ler foto"
+sleep 5
+adb shell pidof "$PKG" >/dev/null || { echo "CRASH WHEN OPENING PHOTO PICKER"; exit 1; }
+adb shell input keyevent 4
+sleep 4
 dump_ui
 tap_text "Ler cartão"
 sleep 18
