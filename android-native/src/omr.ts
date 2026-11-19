@@ -91,11 +91,12 @@ export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
  if(!candidates.length)return {error:"As dez colunas não foram localizadas na foto.",boxes:[],results:[]};
  candidates.sort((a,b)=>b.score-a.score);
  let top:(typeof candidates)[number]|null=null,lower=0;
- // Aceita o tamanho real do cartão na foto. A altura esperada é proporcional
- // à largura das caixas (aprox. 3,6 vezes), não à altura da tela.
+ // Aceita enquadramento só da grade e orientação vertical de telefone.
+ // A câmera pode esticar a grade ao converter YUV para 640x480;
+ // a razão altura/largura da caixa varia bastante (1,9x a 9x).
  for(const c of candidates.slice(0,160)){
-  const from=Math.max(c.y+Math.round(c.median*2.6),c.y+18);
-  const to=Math.min(h-1,c.y+Math.round(c.median*5.1));
+  const from=Math.max(c.y+Math.round(c.median*1.9),c.y+18);
+  const to=Math.min(h-1,c.y+Math.round(c.median*9.0));
   let bestY=0,bestScore=0;
   for(let y=from;y<=to;y++){
    let lined=0,well=0;
