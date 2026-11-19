@@ -1,333 +1,254 @@
 <!doctype html>
-<html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173b75"><title>Leitor de cartão PSS</title>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Leitor PSS1 — respostas ao vivo</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;font:15px system-ui,-apple-system,sans-serif;color:#10243e;background:#eff3f8}button{font:inherit;border:0;border-radius:10px;padding:13px 15px;background:#1b447f;color:white;font-weight:700;touch-action:manipulation;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#e8eef8;color:#143b71}button.good{background:#13764a}header{padding:6px 12px;background:white;border-bottom:1px solid #dbe3ee;display:flex;justify-content:space-between;align-items:center;gap:8px}h1{font-size:15px;margin:0}#student{font-size:12px;color:#546a83;margin-top:4px}.headerback{background:#eef2f8;color:#1e3a65;padding:9px 14px}.toolbar{display:flex;gap:8px;padding:9px 12px;background:white}.toolbar button,.toolbar label{flex:1;min-width:0}.filelabel{border:1px solid #afc0d4;border-radius:9px;background:#f1f6fc;padding:9px;text-align:center;font-weight:700;color:#1c426f;cursor:pointer}.filelabel input{display:none}.message{font-size:13px;padding:6px 12px;color:#35516c;background:white;min-height:27px}#viewport{position:relative;background:#060b14;overflow:hidden;height:72dvh;min-height:340px;display:flex;justify-content:center;align-items:center}#viewport video,#viewport canvas{display:none;max-width:100%;max-height:100%;object-fit:contain}#viewport.mode-live video{display:block;width:100%;height:100%}#viewport.mode-live canvas#overlay{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#viewport.mode-photo canvas#snapshot{display:block;width:100%;height:100%;touch-action:manipulation}.capture-controls{display:none}body.camera-active header,body.camera-active .toolbar,body.camera-active #answersPanel,body.camera-active #status{display:none}body.camera-active #viewport{position:fixed;inset:0;height:100dvh;width:100vw;z-index:20;border-radius:0}body.camera-active #overlay{pointer-events:auto!important;touch-action:manipulation}body.camera-active .capture-controls{align-items:end}body.camera-active .capture-controls{pointer-events:auto}body.camera-active #capture,body.camera-active #cancelCamera{touch-action:manipulation;pointer-events:auto}body.camera-active .capture-controls{display:flex;position:fixed;bottom:72px;left:0;right:0;z-index:30;gap:12px;justify-content:center;align-items:center;padding:14px 14px max(18px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.83));color:white}body.camera-active .capture-controls button{background:#fff;color:#133760}body.camera-active #capture{border-radius:14px;min-width:100px;min-height:54px;flex:none;border:2px solid #ffffff6b;background:white;font-size:14px}body.camera-active #cancelCamera{width:76px;flex:none;background:#24374be0;color:white}body.camera-active #liveInfo{min-width:60px;flex:1}#answersPanel{padding:8px;max-width:980px;margin:0 auto}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.answer{border:1px solid #d1dcec;border-radius:11px;padding:9px 5px;background:white}.answer.missing{background:#fff6ea}.answer .marks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:7px}.answer button.mark{border:1px solid #9baec8;padding:9px 0;min-width:0;border-radius:6px;background:white;color:#183c65;font-size:12px;font-weight:800}.answer button.mark.selected{background:#16477c;color:white;border-color:#16477c}.answer .sum{text-align:center;font-weight:800;font-size:19px;margin-top:7px}.actionrow{display:flex;gap:8px;margin:12px 0}.actionrow>*{flex:1}.assist{font-size:12px;color:#536882;margin:8px 0}@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.answer button.mark{padding:12px 0}#viewport{height:72dvh;min-height:330px}}@media(max-width:350px){.answer button.mark{font-size:11px}}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font:15px system-ui,-apple-system,sans-serif;color:#15263d;background:#f1f5f9}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;background:#1e3a8a;color:#fff;font-weight:800;padding:12px 14px;touch-action:manipulation}
+button:disabled{opacity:.4}button.secondary{background:#e8effa;color:#153d77;border:1px solid #ccd8e8}button.good{background:#147c48}
+#camera{position:fixed;inset:0;width:100%;height:100dvh;background:#020509;overflow:hidden}
+#video{display:block;width:100%;height:100%;object-fit:contain}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:auto;touch-action:manipulation}
+#cameraTop{position:absolute;top:max(14px,env(safe-area-inset-top));left:12px;right:12px;display:flex;gap:9px;align-items:center;z-index:5}
+#exit{background:#152943ed;flex:none;padding:14px}
+#student{font-size:13px;font-weight:800;background:#152943d9;color:#fff;padding:12px 10px;border-radius:9px;flex:1;text-align:right}
+#progress{position:absolute;top:calc(max(14px,env(safe-area-inset-top)) + 69px);left:12px;right:12px;color:white;font-weight:800;font-size:13px;text-shadow:0 1px 3px #000;background:#091d3699;padding:9px 12px;border-radius:9px;max-width:480px;z-index:5}
+#reviewLive{position:absolute;top:69%;right:14px;background:#146a39;color:#fff;border:2px solid #a3fac0;border-radius:12px;min-width:165px;min-height:58px;z-index:6;box-shadow:0 4px 14px #0008}
+#reviewPanel{max-width:780px;margin:0 auto;padding:12px 10px 24px}
+#reviewPanel h1{font-size:18px;color:#193765;margin:0 0 3px}
+#school{font-size:12px;color:#52677e;margin:0 0 12px}
+#reviewMessage{padding:10px;border-radius:9px;background:#fff9e9;border:1px solid #f1d9ab;margin:8px 0 12px;font-size:13px}
+#answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.question{background:#fff;border:1px solid #d1dbea;border-radius:12px;padding:10px}
+.question .head{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-bottom:9px}
+.question .sum{font-size:19px;color:#1e3a8a}
+.bits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.bit{padding:12px 2px;background:white;color:#1b3e65;border:2px solid #9cacc5;border-radius:9px;min-width:0}
+.bit.selected{color:#fff;background:#183d77;border-color:#183d77}
+.zero{background:#e8effa;color:#153d77;padding:8px 6px;width:100%;margin-top:8px}
+#actions{display:flex;gap:8px;margin-top:13px}
+#actions button{flex:1;min-height:50px}
+[hidden]{display:none!important}
+@media (min-width:760px){#answers{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media (max-width:360px){#reviewLive{right:8px;min-width:130px;font-size:13px}#student{font-size:11px}}
 </style></head>
 <body>
-<header><div><h1>Leitor de cartão</h1><div id="student"></div></div><button class="headerback" id="back" type="button">Voltar</button></header>
-<div class="toolbar"><button id="open" type="button">Abrir câmera</button><label for="file" class="filelabel">Escolher imagem<input id="file" type="file" accept="image/*"></label></div>
-<div id="status" class="message" role="status" aria-live="polite"></div>
-<div id="viewport"><video id="video" autoplay muted playsinline webkit-playsinline></video><canvas id="overlay"></canvas><canvas id="snapshot" width="800" height="600"></canvas></div>
-<div class="capture-controls"><button type="button" id="cancelCamera">Sair</button><button type="button" id="capture">Conferir respostas</button><div id="liveInfo" style="flex:1;text-align:center;font-size:12px;font-weight:700;text-shadow:0 1px 3px #000">0/10 lidas</div></div>
-<section id="answersPanel"><div class="actionrow"><button id="analyze" class="secondary" type="button">Ler novamente</button><button id="retake" class="secondary" type="button">Abrir câmera</button></div>
-<div id="answers" class="grid"></div>
-<div class="actionrow"><button id="send" class="good" type="button" disabled>Usar respostas</button></div></section>
+<main id="camera">
+ <video id="video" muted autoplay playsinline webkit-playsinline></video>
+ <canvas id="overlay"></canvas>
+ <div id="cameraTop"><button id="exit" type="button">← Voltar</button><div id="student"></div></div>
+ <div id="progress" role="status" aria-live="polite">Abrindo câmera…</div>
+ <button id="reviewLive" type="button">Conferir respostas</button>
+</main>
+<section id="reviewPanel" hidden>
+ <h1>Corretor PSS 1 — Matemática 2026</h1>
+ <div id="school">Colégio Estadual Padre Nicolau Baltazar</div>
+ <div id="reviewStudent"></div><div id="reviewMessage" role="status"></div>
+ <div id="answers"></div>
+ <div id="actions"><button id="resume" class="secondary" type="button">Retomar câmera</button>
+ <button id="send" class="good" type="button" disabled>Usar respostas</button></div>
+ <button id="return" class="secondary" type="button" style="width:100%;margin-top:8px">Voltar sem salvar</button>
+</section>
 <script>
-"use strict";
+'use strict';
 const params=new URLSearchParams(location.search),turma=params.get('turma')||'',num=Number(params.get('num')),tipo=params.get('tipo')||'';
 const $=id=>document.getElementById(id);
-const video=$('video'),snapshot=$('snapshot'),ctx=snapshot.getContext('2d',{willReadFrequently:true}),overlay=$('overlay'),overlayCtx=overlay.getContext('2d'),viewport=$('viewport');
-const state={stream:null,loading:false,cv:null,cvPromise:null,frame:null,analysisCanvas:document.createElement('canvas'),frozen:false,source:null,result:null,marks:Array(10).fill(null),recognizing:false,edited:new Set(),liveResults:null,liveCount:0,scanSession:0,livePending:false};
-$('student').textContent='Turma '+turma+' · Nº '+String(num).padStart(2,'0')+' · Tipo '+tipo;
-function message(t){$('status').textContent=t}
-function updateSend(){$('send').disabled=state.marks.some(x=>!Number.isInteger(x)||x<0||x>15)||!['1A','1B'].includes(turma)||!['A','B','C'].includes(tipo)||!Number.isInteger(num)||num<1}
-function renderInputs(){
- const root=$('answers');root.replaceChildren();
- for(let q=0;q<10;q++){
-  const box=document.createElement('div');box.className='answer'+(state.marks[q]===null?' missing':'');
-  const title=document.createElement('div');title.style.textAlign='center';title.style.fontWeight='700';title.textContent='Q'+String(q+1).padStart(2,'0');
-  const buttons=document.createElement('div');buttons.className='marks';
-  for(const bit of [1,2,4,8]){
-   const button=document.createElement('button');button.type='button';button.className='mark'+(state.marks[q]!==null&&(state.marks[q]&bit)?' selected':'');
-   button.textContent=String(bit).padStart(2,'0');button.setAttribute('aria-pressed',Boolean(state.marks[q]!==null&&(state.marks[q]&bit)));
-   button.onclick=()=>{
-    if(state.marks[q]===null)state.marks[q]=0;
-    state.marks[q]^=bit;
-    state.edited.add(q);renderInputs();if(state.frozen&&state.result)drawBoxes(state.result,true);
-   };
-   buttons.append(button);
-  }
-  const sum=document.createElement('div');sum.className='sum';sum.textContent=state.marks[q]===null?'—':String(state.marks[q]).padStart(2,'0');
-  const zero=document.createElement('button');zero.type='button';zero.className='mark';zero.textContent='00 / limpar';zero.style.width='100%';zero.style.marginTop='5px';
-  zero.onclick=()=>{state.marks[q]=0;state.edited.add(q);renderInputs();if(state.frozen&&state.result)drawBoxes(state.result,true)};
-  box.append(title,buttons,sum,zero);root.append(box);
- }updateSend();
+const video=$('video'),overlay=$('overlay'),ctx=overlay.getContext('2d');
+const workerUrl='omr-live-decimal-worker.js?v=20261119-live2';
+const state={stream:null,worker:null,timer:null,inFlight:false,seq:0,token:0,
+ results:null,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera'};
+$('student').textContent=turma+' · Nº '+String(num).padStart(2,'0')+' · Tipo '+tipo;
+$('reviewStudent').textContent='Turma '+turma+' · Chamada '+String(num).padStart(2,'0')+' · Prova '+tipo;
+const validIdentity=['1A','1B'].includes(turma)&&['A','B','C'].includes(tipo)&&Number.isSafeInteger(num)&&num>=1;
+const processing=document.createElement('canvas');
+function inform(text){$('progress').textContent=text}
+function stopCamera(){
+ if(state.timer){clearTimeout(state.timer);state.timer=null}
+ if(state.stream){for(const track of state.stream.getTracks())track.stop();state.stream=null}
+ video.pause();video.srcObject=null;state.inFlight=false;state.token++;
+ if(state.worker){state.worker.terminate();state.worker=null}
 }
-function applyRead(values){state.marks=values.slice();renderInputs();}
-function closeCamera(){
- if(state.frame!==null){clearTimeout(state.frame);state.frame=null}
- if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null}
- video.pause();video.srcObject=null;
+function mapRect(){
+ const w=video.videoWidth,h=video.videoHeight,vw=overlay.clientWidth,vh=overlay.clientHeight;
+ if(!w||!h||!vw||!vh)return null;
+ const scale=Math.min(vw/w,vh/h),aw=processing.width;
+ return {left:(vw-w*scale)/2,top:(vh-h*scale)/2,scale:scale*w/aw};
 }
-function dimensions(source){
- const w=source.videoWidth||source.naturalWidth||source.width;
- const h=source.videoHeight||source.naturalHeight||source.height;
- return w&&h?{w,h}:null;
+function mapPoint(p){
+ const rect=mapRect();if(!rect)return null;
+ return {x:rect.left+p.x*rect.scale,y:rect.top+p.y*rect.scale};
 }
-function drawSnapshot(source){
- const d=dimensions(source);if(!d)return false;
- const k=Math.min(1,1200/d.w);snapshot.width=Math.round(d.w*k);snapshot.height=Math.round(d.h*k);
- ctx.drawImage(source,0,0,snapshot.width,snapshot.height);return true;
-}
-function drawBoxes(result,fromMarks=false){
- overlayCtx.clearRect(0,0,overlay.width,overlay.height);
- if(state.frozen&&state.source)drawSnapshot(state.source);
- if(!result?.boxes||result.boxes.length!==10)return;
- const target=state.frozen?ctx:overlayCtx;
- target.lineWidth=Math.max(2,(state.frozen?snapshot.width:overlay.width)/410);
- result.boxes.forEach((box,q)=>{
-  const answer=fromMarks?state.marks[q]:(result.results[q]?.valid?result.results[q].value:null);
-  if(answer===null)return;
-  const cols=result.results[q]?.columns||[];
-  for(let k=0;k<4;k++){
-   const bit=[1,2,4,8][k];if(!(answer&bit))continue;
-   const col=cols[k];if(!col)return;
-   const x=col.x??(box.x+box.w*[.224,.382,.539,.696][k]);
-   const y=col.y??(box.y+box.h*.5);
-   target.beginPath();target.strokeStyle='#16e375';
-   target.arc(x,y,Math.max(5,box.h*.28),0,2*Math.PI);target.stroke();
-  }
- });
-}
-let worker=null,workerSeq=0,workerTask=null;
-function cancelAnalysis(){
- if(workerTask){clearTimeout(workerTask.timer);workerTask.reject(Error('Leitura cancelada.'));workerTask=null}
- if(worker){worker.terminate();worker=null}
- state.recognizing=false;
- $('analyze').disabled=false;
-}
-function analyzeInWorker(sourceCanvas=snapshot,live=false){
- if(!live&&(!state.frozen||!state.source))return Promise.reject(Error('Capture ou escolha uma imagem.'));
- if(!('Worker' in window))return Promise.reject(Error('Este navegador não suporta leitura isolada.'));
- if(workerTask)return Promise.reject(Error('A leitura já está em andamento.'));
- // Diminuir resolução para evitar bloqueio ao copiar pixels no celular.
- const image=document.createElement('canvas');
- const factor=Math.min(1,640/sourceCanvas.width);
- image.width=Math.max(1,Math.round(sourceCanvas.width*factor));
- image.height=Math.max(1,Math.round(sourceCanvas.height*factor));
- image.getContext('2d',{willReadFrequently:true}).drawImage(sourceCanvas,0,0,image.width,image.height);
- const payload=image.getContext('2d',{willReadFrequently:true}).getImageData(0,0,image.width,image.height);
- if(!worker)worker=new Worker('omr-worker.js?v=20261119b');
- const taskId=++workerSeq;
- state.recognizing=true;
- $('analyze').disabled=true;
- return new Promise((resolve,reject)=>{
-  const timeout=setTimeout(()=>{
-   if(!workerTask||workerTask.id!==taskId)return;
-   workerTask=null;
-   if(worker){worker.terminate();worker=null}
-   state.recognizing=false;$('analyze').disabled=false;
-   reject(Error('Tempo de leitura excedido. Você pode corrigir tocando nas proposições.'));
-  },live?3500:12000);
-  workerTask={id:taskId,resolve,reject,timer:timeout};
-  worker.onmessage=event=>{
-   const m=event.data||{};
-   if(!workerTask||m.id!==workerTask.id)return;
-   clearTimeout(workerTask.timer);workerTask=null;
-   state.recognizing=false;$('analyze').disabled=false;
-   if(m.status!=='ok'){reject(Error(m.message||'Leitura indisponível.'));return}
-   if(m.result&&m.result.boxes){
-    const ratio=sourceCanvas.width/image.width;
-    m.result.boxes.forEach(b=>{
-     b.x*=ratio;b.y*=ratio;b.w*=ratio;b.h*=ratio;
-     if(b.quad)b.quad.forEach(p=>{p.x*=ratio;p.y*=ratio});
-     const row=m.result.results[m.result.boxes.indexOf(b)];
-     for(const col of row?.columns||[]){
-      if(col.x!==undefined)col.x*=ratio;
-      if(col.y!==undefined)col.y*=ratio;
-     }
-    });
-   }
-   resolve(m.result);
-  };
-  worker.onerror=()=>{
-   if(!workerTask||workerTask.id!==taskId)return;
-   clearTimeout(workerTask.timer);workerTask=null;
-   state.recognizing=false;$('analyze').disabled=false;
-   if(worker){worker.terminate();worker=null}
-   reject(Error('Falha no leitor. Use as proposições para conferir.'));
-  };
-  worker.postMessage({action:'analyze',id:taskId,width:image.width,height:image.height,pixels:payload.data.buffer},[payload.data.buffer]);
- });
-}
-function showSource(){viewport.classList.toggle('mode-live',!!state.stream);viewport.classList.toggle('mode-photo',state.frozen);document.body.classList.toggle('camera-active',!!state.stream&&!state.frozen)}
-function livePoint(box,u,v){
- if(box.quad&&box.quad.length===4){
-  const q=box.quad;
-  return {x:(1-u)*(1-v)*q[0].x+u*(1-v)*q[1].x+u*v*q[2].x+(1-u)*v*q[3].x,
-          y:(1-u)*(1-v)*q[0].y+u*(1-v)*q[1].y+u*v*q[2].y+(1-u)*v*q[3].y};
+function drawOverlay(){
+ const w=overlay.clientWidth,h=overlay.clientHeight;
+ if(overlay.width!==w||overlay.height!==h){overlay.width=w;overlay.height=h}
+ ctx.clearRect(0,0,w,h);
+ const result=state.results;
+ if(state.mode!=='camera'||!result?.corners||!result.boxes?.length)return;
+ for(const id of ['tl','tr','bl','br']){
+  const p=mapPoint(result.corners[id]);if(!p)continue;
+  ctx.strokeStyle='#36ed8f';ctx.lineWidth=3;ctx.strokeRect(p.x-9,p.y-9,18,18);
  }
- return {x:box.x+u*box.w,y:box.y+v*box.h};
-}
-function videoRect(){
- const vW=video.videoWidth,vH=video.videoHeight,pW=viewport.clientWidth,pH=viewport.clientHeight;
- if(!vW||!vH||!pW||!pH)return null;
- const scale=Math.min(pW/vW,pH/vH);
- return {left:(pW-vW*scale)/2,top:(pH-vH*scale)/2,scale};
-}
-function drawLiveOverlay(result){
- const width=Math.max(1,viewport.clientWidth),height=Math.max(1,viewport.clientHeight);
- if(overlay.width!==width||overlay.height!==height){overlay.width=width;overlay.height=height}
- overlayCtx.clearRect(0,0,width,height);
- if(!result?.boxes||result.boxes.length!==10)return;
- const pos=videoRect();if(!pos)return;
- const ratio=video.videoWidth/state.analysisCanvas.width;
- const map=p=>({x:pos.left+p.x*ratio*pos.scale,y:pos.top+p.y*ratio*pos.scale});
- result.boxes.forEach((box,q)=>{
-  const cols=result.results[q]?.columns||[];
-  for(let k=0;k<4;k++){
-   if(cols[k]?.digit===null||cols[k]?.digit===undefined)continue;
-   const x=cols[k].x??box.x+box.w*[.224,.382,.539,.696][k],y=cols[k].y??box.y+box.h*.5;
-   const center=map({x,y});
-   overlayCtx.beginPath();overlayCtx.strokeStyle='#00ed76';overlayCtx.lineWidth=4;
-   overlayCtx.arc(center.x,center.y,Math.max(8,box.h*ratio*pos.scale*.3),0,2*Math.PI);
-   overlayCtx.stroke();
-  }
- });
-}
-function liveLoop(){
- if(!state.stream||state.frozen)return;
- if(state.livePending){state.frame=setTimeout(liveLoop,250);return}
- if(!video.videoWidth||!video.videoHeight){state.frame=setTimeout(liveLoop,400);return}
- const session=state.scanSession;
- const cv=state.analysisCanvas,dw=640,ratio=dw/video.videoWidth;
- cv.width=dw;cv.height=Math.round(video.videoHeight*ratio);
- try{cv.getContext('2d',{willReadFrequently:true}).drawImage(video,0,0,cv.width,cv.height)}
- catch(e){state.frame=setTimeout(liveLoop,900);return}
- state.livePending=true;
- analyzeInWorker(cv,true).then(result=>{
-  if(!state.stream||state.frozen||state.scanSession!==session)return;
-  if(!result||result.error||result.boxes?.length!==10){
-   $('liveInfo').textContent='Ajuste o cartão';drawLiveOverlay(null);
-   return;
-  }
-  state.liveResults=result;state.result=result;
-  let count=0;
-  result.results.forEach((r,q)=>{
-   if(r.valid){count++;if(!state.edited.has(q))state.marks[q]=r.value}
-  });
-  state.liveCount=count;$('liveInfo').textContent=count+'/10 lidas';
-  renderInputs();drawLiveOverlay(result);
- }).catch(()=>{if(state.scanSession===session&&state.stream)$('liveInfo').textContent='Ajuste o cartão'})
- .finally(()=>{
-  state.livePending=false;
-  if(state.stream&&!state.frozen&&state.scanSession===session)state.frame=setTimeout(liveLoop,1100);
- });
-}
-overlay.addEventListener('pointerdown',event=>{
- if(!state.stream||!state.liveResults?.boxes?.length)return;
- const rect=overlay.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
- const pos=videoRect();if(!pos)return;
- const ratio=video.videoWidth/state.analysisCanvas.width;
- const px=(x-pos.left)/(ratio*pos.scale),py=(y-pos.top)/(ratio*pos.scale);
- let nearest=null;
  for(let q=0;q<10;q++){
-  const box=state.liveResults.boxes[q],cols=state.liveResults.results[q]?.columns||[];
-  for(let k=0;k<4;k++){
-   const col=cols[k];if(!col)continue;
-   const dx=px-(col.x??box.x+box.w*[.224,.382,.539,.696][k]);
-   const dy=py-(col.y??box.y+box.h*.5),distance=dx*dx+dy*dy;
-   if(!nearest||distance<nearest.distance)nearest={q,k,distance,radius:Math.max(10,box.h*.55)};
+  const entry=result.results[q],cols=entry?.columns||[];
+  const finalValue=state.edited.has(q)?state.marks[q]:entry?.rawValue;
+  for(let c=0;c<2;c++){
+   const digit=finalValue===null||finalValue===undefined?null:c===0?Math.floor(finalValue/10):finalValue%10;
+   if(digit===null)continue;
+   const opt=cols[c]?.options?.find(p=>p.digit===digit);
+   const p=opt?mapPoint(opt):null;if(!p)continue;
+   ctx.beginPath();ctx.strokeStyle=finalValue>15?'#ff5555':'#20ec75';
+   ctx.lineWidth=4;ctx.arc(p.x,p.y,Math.max(8,result.boxes[q].w*mapRect().scale*.075),0,Math.PI*2);ctx.stroke();
   }
  }
- if(!nearest||nearest.distance>nearest.radius*nearest.radius)return;
- const bit=[1,2,4,8][nearest.k],q=nearest.q;
- state.marks[q]=(state.marks[q]??0)^bit;state.edited.add(q);
- renderInputs();drawLiveOverlay(state.liveResults);
- $('liveInfo').textContent='Q'+String(q+1).padStart(2,'0')+' = '+String(state.marks[q]).padStart(2,'0');
-});
-async function openCamera(){
- if(state.loading)return;
- cancelAnalysis();
- state.loading=true;$('open').disabled=true;
- closeCamera();state.frozen=false;state.result=null;state.source=null;
- try{
-  if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('A câmera exige uma página HTTPS e permissão do navegador.');
-  message('Solicitando acesso à câmera…');
-  let stream;
-  try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}})}
-  catch(e){if(['NotFoundError','OverconstrainedError'].includes(e.name))stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});else throw e}
-  state.stream=stream;video.srcObject=stream;
-  await video.play();state.frozen=false;state.scanSession++;state.liveResults=null;state.liveCount=0;state.edited.clear();showSource();
-  $('liveInfo').textContent='Procurando cartão';
-  message('Câmera ativa.');
-  liveLoop();
-  // A leitura só acontece depois da captura, sem bloquear os botões da câmera.
- }catch(e){
-  closeCamera();showSource();
-  const msg=e.name==='NotAllowedError'?'Permissão negada. Autorize a câmera para este site.':e.name==='NotReadableError'?'Câmera ocupada por outro aplicativo.':String(e.message||e);
-  message('Não foi possível abrir a câmera: '+msg+'. Você pode escolher uma imagem.');
- }finally{state.loading=false;$('open').disabled=false}
 }
-$('open').onclick=openCamera;
-$('capture').onclick=()=>{
- if(!state.stream){message('Câmera indisponível.');return}
+function applyReading(result){
+ if(state.mode!=='camera')return;
+ if(!result||result.error||result.markersFound!==4){
+  state.results=null;state.signature='';state.stableCount=0;
+  inform(result?.error||'Enquadre os quatro cantos do cartão');
+  drawOverlay();return;
+ }
+ state.results=result;
+ const values=result.results.map(r=>r.valid?r.value:null);
+ const signature=values.join('|');
+ state.stableCount=state.signature===signature?state.stableCount+1:1;
+ state.signature=signature;
+ if(state.stableCount>=2){
+  for(let q=0;q<10;q++)if(!state.edited.has(q)&&values[q]!==null)state.marks[q]=values[q];
+ }
+ const valid=values.filter(v=>v!==null).length;
+ const bad=result.results.findIndex(r=>r.rawValue!==null&&r.rawValue!==undefined&&r.rawValue>15);
+ inform(valid+'/10 lidas'+(bad>=0?' · Q'+String(bad+1).padStart(2,'0')+' = '+result.results[bad].rawValue+' (inválida)':''));
+ drawOverlay();
+}
+function schedule(ms){
+ if(state.mode!=='camera'||!state.stream)return;
+ state.timer=setTimeout(readFrame,ms);
+}
+function ensureWorker(){
+ if(state.worker)return state.worker;
+ const worker=new Worker(workerUrl);state.worker=worker;
+ worker.onmessage=event=>{
+  const msg=event.data||{};if(msg.id!==state.seq||state.mode!=='camera')return;
+  state.inFlight=false;
+  if(msg.status==='ok')applyReading(msg.result);
+  else inform('Erro na leitura: '+String(msg.message||'processamento'));
+  schedule(330);
+ };
+ worker.onerror=e=>{
+  state.inFlight=false;
+  inform('Falha no leitor. Reiniciando…');
+  try{state.worker?.terminate()}catch(_){}
+  state.worker=null;schedule(900);
+ };
+ return worker;
+}
+function readFrame(){
+ if(state.mode!=='camera'||!state.stream)return;
+ if(state.inFlight){schedule(180);return}
+ if(!video.videoWidth||!video.videoHeight||video.readyState<2){schedule(330);return}
+ const targetW=640;
+ processing.width=targetW;
+ processing.height=Math.max(180,Math.round(video.videoHeight*targetW/video.videoWidth));
  try{
-  if(!drawSnapshot(video)){message('Aguarde a imagem aparecer e toque novamente.');return}
-  // Copia o quadro SINCRONAMENTE; não espera biblioteca externa nem rede.
-  const frame=document.createElement('canvas');
-  frame.width=snapshot.width;frame.height=snapshot.height;
-  frame.getContext('2d').drawImage(snapshot,0,0);
-  cancelAnalysis();state.source=frame;
-  state.frozen=true;state.result=null;renderInputs();
-  // Respostas são mantidas; coordenadas do vídeo não são reutilizadas na foto maior.
-  state.scanSession++;closeCamera();showSource();
-  drawSnapshot(frame);
-  message('Imagem capturada. Lendo as quatro proposições…');
-  setTimeout(()=>$('analyze').click(),80);
+  const p=processing.getContext('2d',{willReadFrequently:true});
+  p.drawImage(video,0,0,processing.width,processing.height);
+  const image=p.getImageData(0,0,processing.width,processing.height);
+  state.inFlight=true;
+  const id=++state.seq;
+  ensureWorker().postMessage({action:'analyze',id,width:processing.width,height:processing.height,pixels:image.data.buffer},[image.data.buffer]);
  }catch(err){
-  closeCamera();state.frozen=false;showSource();
-  message('Falha ao capturar: '+String(err.message||err));
+  state.inFlight=false;inform('Falha ao ler câmera: '+String(err.message||err).slice(0,90));schedule(800);
  }
-};
-$('cancelCamera').onclick=()=>{state.scanSession++;cancelAnalysis();closeCamera();location.href='index.html';};
-$('retake').onclick=()=>openCamera();
-$('file').onchange=async e=>{
- const f=e.target.files&&e.target.files[0];if(!f)return;
- cancelAnalysis();closeCamera();state.frozen=true;state.result=null;state.marks=Array(10).fill(null);renderInputs();showSource();
- const url=URL.createObjectURL(f),img=new Image();
+}
+async function startCamera(){
+ stopCamera();
+ state.mode='camera';$('reviewPanel').hidden=true;$('camera').hidden=false;
+ state.results=null;state.signature='';state.stableCount=0;
+ drawOverlay();inform('Abrindo câmera…');
+ if(!validIdentity){inform('Identificação inválida. Volte e leia o QR da prova.');return}
  try{
-  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
-  state.source=img;drawSnapshot(img);
-  message('Imagem carregada. Lendo as quatro proposições…');
-  setTimeout(()=>$('analyze').click(),80);
- }catch(err){message('Falha ao abrir imagem: '+String(err.message||err))}
- finally{URL.revokeObjectURL(url);$('file').value=''}
-};
-$('analyze').onclick=async()=>{
- if(!state.frozen||!state.source){message('Capture ou escolha uma imagem primeiro.');return}
- if(!drawSnapshot(state.source))return;
- message('Lendo marcações…');
- try{
-  const result=await analyzeInWorker();
-  if(!result||result.error){state.result=null;message(result&&result.error||'Cartão não identificado. Nenhuma resposta foi zerada.');return}
-  const numbers=result.results.map(r=>r.valid?r.value:null);
-  const found=numbers.filter(n=>n!==null).length;
-  state.result=result;applyRead(numbers);drawBoxes(result,true);
-  message('Respostas identificadas: '+found+'/10. '+(found===10?'Confira antes de enviar.':'Respostas não reconhecidas permanecem em branco, não zeradas.'));
- }catch(err){message(String(err.message||err))}
-};
-snapshot.addEventListener('pointerdown',e=>{
- if(!state.frozen||!state.result||state.result.boxes.length!==10)return;
- const rect=snapshot.getBoundingClientRect();
- const x=(e.clientX-rect.left)*snapshot.width/rect.width,y=(e.clientY-rect.top)*snapshot.height/rect.height;
- let nearest=null;
+  if(!isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('O navegador requer HTTPS para abrir a câmera');
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+  if(state.mode!=='camera'){stream.getTracks().forEach(t=>t.stop());return}
+  state.stream=stream;video.srcObject=stream;await video.play();
+  inform('Enquadre os quatro marcadores do cartão');
+  readFrame();
+ }catch(e){
+  inform(e?.name==='NotAllowedError'?'Autorize a câmera nas permissões do navegador':String(e?.message||e));
+ }
+}
+function scoreText(n){return n===null?'—':String(n).padStart(2,'0')}
+function renderAnswers(){
+ const parent=$('answers');parent.replaceChildren();
  for(let q=0;q<10;q++){
-  const box=state.result.boxes[q],cols=state.result.results[q]?.columns||[];
-  for(let k=0;k<4;k++){
-   const col=cols[k];if(!col)continue;
-   const px=col.x??box.x+box.w*[.224,.382,.539,.696][k];
-   const py=col.y??box.y+box.h*.5;
-   const d=(x-px)**2+(y-py)**2;
-   if(!nearest||d<nearest.distance)nearest={q,k,d,radius:Math.max(10,box.h*.55)};
+  const wrap=document.createElement('section');wrap.className='question';
+  const head=document.createElement('div');head.className='head';
+  const name=document.createElement('span');name.textContent='Q'+String(q+1).padStart(2,'0');
+  const value=document.createElement('span');value.className='sum';value.textContent=scoreText(state.marks[q]);
+  head.append(name,value);wrap.append(head);
+  const choices=document.createElement('div');choices.className='bits';
+  for(const bit of [1,2,4,8]){
+   const control=document.createElement('button');control.type='button';control.className='bit'+(state.marks[q]!==null&&(state.marks[q]&bit)?' selected':'');
+   control.textContent=String(bit).padStart(2,'0');
+   control.onclick=()=>{state.marks[q]=(state.marks[q]??0)^bit;state.edited.add(q);renderAnswers()};
+   choices.append(control);
   }
+  wrap.append(choices);
+  const zero=document.createElement('button');zero.type='button';zero.className='zero';
+  zero.textContent='00 · zerar';zero.onclick=()=>{state.marks[q]=0;state.edited.add(q);renderAnswers()};wrap.append(zero);
+  parent.append(wrap);
  }
- if(!nearest||nearest.d>nearest.radius**2)return;
- const bit=[1,2,4,8][nearest.k],q=nearest.q;
- state.marks[q]=(state.marks[q]??0)^bit;state.edited.add(q);
- renderInputs();drawBoxes(state.result,true);
- message('Q'+String(q+1).padStart(2,'0')+' = '+String(state.marks[q]).padStart(2,'0'));
-});
+ const remaining=state.marks.filter(x=>x===null).length;
+ $('reviewMessage').textContent=remaining?
+  'Faltam '+remaining+' respostas. Confira os valores e complete tocando em 01, 02, 04 e 08.':
+  'Dez somatórias completas. Confira antes de enviar para a nota.';
+ $('send').disabled=!validIdentity||remaining>0||state.marks.some(n=>!Number.isInteger(n)||n<0||n>15);
+}
+function review(){
+ if(state.mode!=='camera')return;
+ stopCamera();state.mode='review';
+ $('camera').hidden=true;$('reviewPanel').hidden=false;
+ renderAnswers();
+ window.scrollTo(0,0);
+}
+function goHome(){
+ stopCamera();location.href='index.html?v=20261119-live2';
+}
+$('reviewLive').onclick=review;
+$('exit').onclick=goHome;
+$('return').onclick=goHome;
+$('resume').onclick=()=>{state.edited.clear();startCamera()};
 $('send').onclick=()=>{
  if($('send').disabled)return;
  if(!confirm('Confirmar as dez somatórias do aluno '+num+', turma '+turma+'?'))return;
- try{localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks:state.marks.slice(),source:'camera-or-image',timestamp:Date.now()}));closeCamera();location.href='index.html?omr=1'}
- catch(e){message('Não foi possível guardar as respostas: '+String(e.message||e))}
+ try{
+  localStorage.setItem('pss1_omr_pending',JSON.stringify({turma,num,tipo,marks:state.marks.slice(),source:'live-camera',timestamp:Date.now()}));
+  goHome();
+ }catch(e){$('reviewMessage').textContent='Não foi possível guardar as respostas: '+String(e.message||e)}
 };
-$('back').onclick=()=>{state.scanSession++;cancelAnalysis();closeCamera();location.href='index.html'};
-window.addEventListener('pagehide',()=>{cancelAnalysis();closeCamera()});
-renderInputs();showSource();
-// Após QR Code, tenta a abertura automática; o botão manual continua disponível.
-setTimeout(()=>{openCamera()},200);
+overlay.addEventListener('pointerdown',event=>{
+ const result=state.results,rect=mapRect();
+ if(!result||!rect)return;
+ const bx=event.clientX-overlay.getBoundingClientRect().left;
+ const by=event.clientY-overlay.getBoundingClientRect().top;
+ const px=(bx-rect.left)/rect.scale,py=(by-rect.top)/rect.scale;
+ let nearest=null;
+ for(let q=0;q<10;q++)for(let c=0;c<2;c++){
+  const opts=result.results[q]?.columns[c]?.options||[];
+  for(const option of opts){
+   const dist=(option.x-px)**2+(option.y-py)**2;
+   if(!nearest||dist<nearest.dist)nearest={q,c,digit:option.digit,dist};
+  }
+ }
+ const maxDistance=Math.max(8,Math.abs(result.corners.tr.x-result.corners.tl.x)*.016);
+ if(!nearest||nearest.dist>maxDistance**2)return;
+ const {q,c,digit}=nearest;
+ const original=state.marks[q]??result.results[q].rawValue??0;
+ const next=c===0?digit*10+(original%10):Math.floor(original/10)*10+digit;
+ if(next>15){inform('Soma '+next+' inválida: o máximo é 15');return}
+ state.marks[q]=next;state.edited.add(q);
+ drawOverlay();inform('Q'+String(q+1).padStart(2,'0')+' = '+scoreText(next)+' · toque Conferir respostas');
+});
+window.addEventListener('pagehide',stopCamera);
+startCamera();
 </script></body></html>
