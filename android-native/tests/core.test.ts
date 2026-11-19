@@ -1,5 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {inflateSync} from 'node:zlib';
+import {realCardCrops} from './fixtures/real-card-crops';
 import {parseStudentQR,ROSTERS} from '../src/data';
 import {grade,scoreQuestion,toggleBit} from '../src/scoring';
 import {decodeBinary,luminanceToBinary,stableReading} from '../src/omr';
@@ -75,4 +77,32 @@ test('fallback CPU lê plano de luminância YUV com padding e sem Vulkan',()=>{
 });
 test('fallback CPU rejeita buffer sem plano Y completo',()=>{
  assert.throws(()=>luminanceToBinary(new Uint8Array(5),640,480,640));
+});
+
+test('OMR reconhece dois cartões reais anonimizados, incluindo somatório 00',()=>{
+ for(const fixture of realCardCrops){
+  const binary=new Uint8Array(inflateSync(Buffer.from(fixture.compressed,'base64')));
+  assert.equal(binary.length,fixture.width*fixture.height,fixture.title);
+  const result=decodeBinary(binary,fixture.width,fixture.height);
+  assert.equal(result.error,undefined,fixture.title);
+  assert.deepEqual(result.results.map(r=>r.value),[...fixture.expected],fixture.title);
+  assert.equal(result.boxes.length,10,fixture.title);
+ }
+});
+
+test('leitura CPU de cartões reais em enquadramento vertical e ampliação para 640x480',()=>{
+ for(const fixture of realCardCrops){
+  const binary=new Uint8Array(inflateSync(Buffer.from(fixture.compressed,'base64')));
+  const stride=fixture.width+32;
+  const yPlane=new Uint8Array(stride*fixture.height).fill(255);
+  for(let y=0;y<fixture.height;y++){
+   for(let x=0;x<fixture.width;x++){
+    yPlane[y*stride+x]=binary[y*fixture.width+x]===255?0:255;
+   }
+  }
+  const processed=luminanceToBinary(yPlane,fixture.width,fixture.height,stride,640,480);
+  const result=decodeBinary(processed,640,480);
+  assert.equal(result.error,undefined,fixture.title);
+  assert.deepEqual(result.results.map(r=>r.value),[...fixture.expected],fixture.title);
+ }
 });
