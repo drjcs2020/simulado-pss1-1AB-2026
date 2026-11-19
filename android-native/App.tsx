@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Alert,ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
+import {CameraView,useCameraPermissions} from 'expo-camera';
 import {Skia,PaintStyle} from '@shopify/react-native-skia';
-import {CodeScanner} from 'react-native-vision-camera-barcode-scanner';
 import {useAsyncRunner,useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
 import {SkiaCamera} from 'react-native-vision-camera-skia';
 import {useResizer,type GPUFrame} from 'react-native-vision-camera-resizer';
@@ -16,7 +16,7 @@ import {loadEndpoint,pendingGrade,readSheet,resetGrade,saveGrade,setEndpoint} fr
 const BLUE='#1e3a8a',GREEN='#16a34a',BG='#f1f5f9',WHITE='#fff';
 const PROCESS_WIDTH=640,PROCESS_HEIGHT=480;
 type Tab='correct'|'grades'|'stats'|'config';
-type Mode='none'|'qr'|'omr';
+type Mode='none'|'qr'|'qr-success'|'omr';
 function format(n:number){return n.toFixed(2).replace('.',',')}
 const greenPaint=Skia.Paint();
 greenPaint.setColor(Skia.Color('#22e87e'));
@@ -117,8 +117,10 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:
     <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
     <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ LEITURA CONFIRMADA':'● LENDO CARTÃO'}</Text></View>
   </View>
-  <View style={styles.cameraBottom} pointerEvents="box-none">
-    <Button label="Conferir respostas" kind="green" onPress={onReview}/>
+  <View style={styles.cameraReview} pointerEvents="box-none">
+    <Pressable onPress={onReview} style={styles.reviewButton}>
+      <Text style={styles.whiteText}>Conferir respostas</Text>
+    </Pressable>
   </View>
  </View>;
 }
@@ -133,14 +135,23 @@ export default function App(){
  const [lastBoxes,setLastBoxes]=useState<CardBox[]>([]);
  const edited=useRef(new Set<number>());
  const {hasPermission,requestPermission}=useCameraPermission();
+ const [qrPermission,requestQRPermission]=useCameraPermissions();
+ const qrHandling=useRef(false);
+ const qrTransition=useRef<ReturnType<typeof setTimeout>|null>(null);
  const student=lookupStudent(group,studentNumber)!;
  const score=useMemo(()=>marks.every(m=>m!==null)?grade(marks,student.type).total:0,[marks,student.type]);
  const key=group+'-'+studentNumber;
  useEffect(()=>{loadEndpoint().then(setEndpointText).catch(()=>{});},[]);
- useEffect(()=>{if(mode!=='none'&&!hasPermission)requestPermission().catch(()=>{})},[mode,hasPermission,requestPermission]);
+ useEffect(()=>{
+  if(mode==='omr'&&!hasPermission)requestPermission().catch(()=>setStatus('Permissão para câmera negada.'));
+ },[mode,hasPermission,requestPermission]);
+ useEffect(()=>{
+  if(mode==='qr'&&!qrPermission?.granted)requestQRPermission().catch(()=>setStatus('Permissão para QR negada.'));
+ },[mode,qrPermission?.granted,requestQRPermission]);
+ useEffect(()=>()=>{if(qrTransition.current)clearTimeout(qrTransition.current)},[]);
  const chooseGroup=(newGroup:ClassId)=>{setGroup(newGroup);setStudentNumber(ROSTERS[newGroup][0].num);setMarks(Array(10).fill(null));edited.current.clear();setStatus('');setIsStable(false)};
  const chooseStudent=(n:number)=>{setStudentNumber(n);setMarks(Array(10).fill(null));edited.current.clear();setIsStable(false);setStatus('')};
- const enterQR=()=>{setStatus('');setMode('qr')};
+ const enterQR=()=>{qrHandling.current=false;setStatus('');setMode('qr')};
  const enterOMR=()=>{edited.current.clear();setLastBoxes([]);setIsStable(false);setStatus('');setMode('omr')};
  const stableCallback=useCallback((values:number[],boxes:CardBox[])=>{
   Vibration.vibrate(75);
@@ -148,12 +159,20 @@ export default function App(){
   setMarks(current=>values.map((v,i)=>edited.current.has(i)?current[i]:v));
   setIsStable(true);
  },[]);
- const onQR=useCallback((scanned:ReadonlyArray<{rawValue?:string|null}>)=>{
-  for(const item of scanned){
-   const qr=parseStudentQR(item.rawValue||'');
-   if(qr){setGroup(qr.group);setStudentNumber(qr.num);setMarks(Array(10).fill(null));
-    edited.current.clear();setIsStable(false);setMode('omr');return}
-  }
+ const onQR=useCallback((data:string)=>{
+  if(qrHandling.current)return;
+  const qr=parseStudentQR(data);
+  if(!qr){setStatus('QR não corresponde ao cartão PSS1.');return;}
+  qrHandling.current=true;
+  setGroup(qr.group);
+  setStudentNumber(qr.num);
+  setMarks(Array(10).fill(null));
+  edited.current.clear();
+  setLastBoxes([]);
+  setIsStable(false);
+  // Fechar o leitor QR antes de abrir a câmera do cartão: evita duas sessões simultâneas.
+  setMode('qr-success');
+  qrTransition.current=setTimeout(()=>{qrTransition.current=null;setMode('omr')},600);
  },[]);
  const changeBit=(q:number,bit:1|2|4|8)=>{edited.current.add(q);setMarks(prev=>prev.map((m,i)=>i===q?toggleBit(m,bit):m));};
  const confirmSave=()=>{
@@ -175,11 +194,21 @@ export default function App(){
   }}]);
  const refresh=async()=>{setBusy(true);try{const d=await readSheet(endpoint);setGrades(d.turmas);setStatus('Boletim atualizado.')}catch(e:any){setStatus(e.message||String(e))}finally{setBusy(false)}};
  const setUrl=async()=>{try{await setEndpoint(endpoint);Alert.alert('Planilha','URL salva.')}catch(e:any){Alert.alert('Erro',e.message||String(e))}};
+ if(mode==='qr-success')return <View style={styles.fullScreen}><ActivityIndicator color="#fff" size="large"/><Text style={[styles.whiteText,{textAlign:'center',marginTop:12}]}>QR identificado</Text></View>;
  if(mode==='qr')return <View style={styles.fullScreen}>
-   {hasPermission?<CodeScanner style={StyleSheet.absoluteFill} isActive={true} barcodeFormats={['qr-code']} onBarcodeScanned={onQR} onError={err=>setStatus(String(err))}/>:<ActivityIndicator color="#fff" size="large"/>}
-   <View style={styles.cameraTop}><Button label="✕ Sair" onPress={()=>setMode('none')}/></View>
-   <View style={styles.cameraBottom}><Text style={styles.whiteText}>{status||'Aponte para o QR Code do aluno'}</Text></View>
+   {qrPermission?.granted?
+     <CameraView style={StyleSheet.absoluteFill} facing="back"
+       barcodeScannerSettings={{barcodeTypes:['qr']}}
+       onBarcodeScanned={e=>onQR(e.data)}
+       onMountError={e=>setStatus('Erro da câmera QR: '+e.message)}/>:
+     <View style={{padding:24,gap:12,alignItems:'center'}}>
+       <Text style={styles.whiteText}>Autorize a câmera para ler o QR Code.</Text>
+       <Button label="Permitir câmera" onPress={()=>requestQRPermission().catch(()=>{})}/>
+     </View>}
+   <View style={styles.cameraTop}><Pressable onPress={()=>{qrHandling.current=false;setMode('none')}} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable></View>
+   {!!status&&<View style={{position:'absolute',top:96,left:16,right:16}}><Text style={styles.whiteText}>{status}</Text></View>}
   </View>;
+ if(mode==='omr'&&!hasPermission)return <View style={styles.fullScreen}><Text style={[styles.whiteText,{textAlign:'center',padding:14}]}>Permissão de câmera necessária.</Text><Button label="Permitir câmera" onPress={()=>requestPermission().catch(()=>{})}/><Button label="Voltar" kind="light" onPress={()=>setMode('none')}/></View>;
  if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes} stable={isStable}
     manualChange={(q,n)=>{edited.current.add(q);setMarks(m=>m.map((v,i)=>i===q?n:v))}}/>;
  return <View style={styles.main}>
@@ -221,6 +250,8 @@ const styles=StyleSheet.create({
  qName:{width:34,fontWeight:'800',fontSize:12},choice:{flex:1,flexDirection:'row',gap:4,justifyContent:'center'},bubble:{height:37,width:37,borderRadius:20,borderWidth:2,borderColor:'#94a3b8',justifyContent:'center',alignItems:'center',backgroundColor:WHITE},bubbleOn:{backgroundColor:'#0f172a',borderColor:'#0f172a'},
  bubbleText:{fontSize:12,fontWeight:'800',color:'#0f172a'},points:{width:42,textAlign:'right',fontSize:12,fontWeight:'800'},input:{borderWidth:1,borderColor:'#94a3b8',borderRadius:8,padding:11,marginVertical:12},
  line:{paddingVertical:8,borderBottomWidth:1,borderColor:'#e2e8f0'},status:{padding:10,fontSize:13,color:'#334155'},fullScreen:{flex:1,backgroundColor:'#030712',justifyContent:'center'},
- cameraTop:{position:'absolute',top:20,left:16,right:16,flexDirection:'row',justifyContent:'space-between',alignItems:'center',zIndex:10},cameraBottom:{position:'absolute',bottom:25,left:20,right:20,zIndex:10},
+ cameraTop:{position:'absolute',top:46,left:16,right:16,flexDirection:'row',justifyContent:'space-between',alignItems:'center',zIndex:10},
+ cameraReview:{position:'absolute',top:'48%',right:14,zIndex:12},
+ reviewButton:{backgroundColor:'#166534',paddingVertical:18,paddingHorizontal:16,borderRadius:12,minWidth:164,alignItems:'center',borderWidth:2,borderColor:'#bbf7d0'},
  exit:{backgroundColor:'#172554cb',padding:14,borderRadius:12},whiteText:{color:'white',fontWeight:'800'},liveBadge:{padding:10,backgroundColor:'#14532dcb',borderRadius:10}
 });
