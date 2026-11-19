@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseStudentQR,ROSTERS} from '../src/data';
 import {grade,scoreQuestion,toggleBit} from '../src/scoring';
-import {decodeBinary,stableReading} from '../src/omr';
+import {decodeBinary,luminanceToBinary,stableReading} from '../src/omr';
 
 test('turmas e QR pertencem aos alunos cadastrados',()=>{
  assert.equal(ROSTERS['1A'].length,21);
@@ -58,4 +58,21 @@ test('só estabiliza com três quadros idênticos',()=>{
  assert.equal(third.stable,true);
  const empty=stableReading({signature:third.signature,count:third.count},null);
  assert.equal(empty.stable,false);
+});
+
+test('fallback CPU lê plano de luminância YUV com padding e sem Vulkan',()=>{
+ const {dark,width,height,expected}=card(.75,0);
+ const bytesPerRow=width+16; // Padding realista de câmera.
+ const yPlane=new Uint8Array(bytesPerRow*height);yPlane.fill(255);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  yPlane[y*bytesPerRow+x]=dark[y*width+x]?0:255;
+ }
+ const bin=luminanceToBinary(yPlane,width,height,bytesPerRow,width,height);
+ const decoded=decodeBinary(bin,width,height);
+ assert.equal(decoded.error,undefined);
+ assert.deepEqual(decoded.results.map(r=>r.value),expected);
+ assert.equal(bin.length,width*height);
+});
+test('fallback CPU rejeita buffer sem plano Y completo',()=>{
+ assert.throws(()=>luminanceToBinary(new Uint8Array(5),640,480,640));
 });
