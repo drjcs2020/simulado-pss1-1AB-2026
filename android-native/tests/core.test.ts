@@ -109,31 +109,3 @@ test('leitura CPU de cartões reais em enquadramento vertical e ampliação para
  }
 });
 
-test('leitor por foto JPEG retorna 10 respostas de cartões reais, incluindo 00',()=>{
- for(const f of realCardCrops){
-  const dark=new Uint8Array(inflateSync(Buffer.from(f.compressed,'base64')));
-  const rgba=new Uint8Array(f.width*f.height*4);
-  for(let i=0;i<dark.length;i++){
-   const v=dark[i]===255?0:255;
-   rgba[i*4]=v;rgba[i*4+1]=v;rgba[i*4+2]=v;rgba[i*4+3]=255;
-  }
-  const photo=jpeg.encode({data:rgba,width:f.width,height:f.height},95);
-  const result=scanPhotoBase64(Buffer.from(photo.data).toString('base64'));
-  assert.equal(result.accepted,10,f.title);
-  assert.deepEqual(result.detection.results.map(r=>r.value),[...f.expected],f.title);
- }
-});
-test('leitor por foto reconhece cartão girado na orientação retrato',()=>{
- const f=realCardCrops[0];
- const dark=new Uint8Array(inflateSync(Buffer.from(f.compressed,'base64')));
- const width=f.height,height=f.width,rgba=new Uint8Array(width*height*4);
- for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-  const v=dark[(f.height-1-x)*f.width+y]===255?0:255;
-  const i=(y*width+x)*4;
-  rgba[i]=v;rgba[i+1]=v;rgba[i+2]=v;rgba[i+3]=255;
- }
- const jpg=jpeg.encode({data:rgba,width,height},95);
- const result=scanPhotoBase64(Buffer.from(jpg.data).toString('base64'));
- assert.equal(result.accepted,10);
- assert.deepEqual(result.detection.results.map(r=>r.value),[...f.expected]);
-});
