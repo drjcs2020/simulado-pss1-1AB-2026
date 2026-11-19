@@ -33,7 +33,7 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
  const [ready,setReady]=useState(false);
  const [feedback,setFeedback]=useState('● LENDO CARTÃO');
  const [snapshot,setSnapshot]=useState<{uri:string;detection:Detection}|null>(null);
- const lastSnapshot=useRef(false);
+ const bestSnapshotCount=useRef(0);
  const [imageWidth,setImageWidth]=useState(0);
  const previous=useRef({signature:'',count:0});
  const confirmed=useRef(false);
@@ -60,8 +60,8 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
     setFeedback(valid===10?'✓ 10/10 IDENTIFICADAS':valid>0?`${valid}/10 IDENTIFICADAS`:'● ENQUADRE A GRADE DE RESPOSTAS');
     const next=stableReading(previous.current,detection);
     previous.current={signature:next.signature,count:next.count};
-    if(valid>0&&!lastSnapshot.current){
-      lastSnapshot.current=true;
+    if(valid>0&&valid>=bestSnapshotCount.current){
+      bestSnapshotCount.current=valid;
       // Imagem de conferência realinhada à mesma orientação usada pelo detector.
       const context=ImageManipulator.ImageManipulator.manipulate(saved.uri);
       if(reading.rotation)context.rotate(reading.rotation);
@@ -80,7 +80,7 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
     previous.current={signature:'',count:0};
    }finally{
     running.current=false;
-    if(!stopped&&!confirmed.current)timer=setTimeout(capture,900);
+    if(!stopped&&!confirmed.current)timer=setTimeout(capture,1300);
    }
   };
   timer=setTimeout(capture,600);
@@ -261,7 +261,7 @@ const styles=StyleSheet.create({
  bubbleText:{fontSize:12,fontWeight:'800',color:'#0f172a'},points:{width:42,textAlign:'right',fontSize:12,fontWeight:'800'},input:{borderWidth:1,borderColor:'#94a3b8',borderRadius:8,padding:11,marginVertical:12},
  line:{paddingVertical:8,borderBottomWidth:1,borderColor:'#e2e8f0'},status:{padding:10,fontSize:13,color:'#334155'},fullScreen:{flex:1,backgroundColor:'#030712',justifyContent:'center'},
  cameraTop:{position:'absolute',top:46,left:16,right:16,flexDirection:'row',justifyContent:'space-between',alignItems:'center',zIndex:10},
- cameraReview:{position:'absolute',top:'48%',right:14,zIndex:12},
+ cameraReview:{position:'absolute',top:'79%',right:14,zIndex:12},
  reviewButton:{backgroundColor:'#166534',paddingVertical:18,paddingHorizontal:16,borderRadius:12,minWidth:164,alignItems:'center',borderWidth:2,borderColor:'#bbf7d0'},
  exit:{backgroundColor:'#172554cb',padding:14,borderRadius:12},whiteText:{color:'white',fontWeight:'800'},liveBadge:{padding:10,backgroundColor:'#14532dcb',borderRadius:10}
 });
