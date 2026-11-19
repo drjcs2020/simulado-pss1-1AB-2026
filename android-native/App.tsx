@@ -79,7 +79,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
      'worklet';
      let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
      try{
-      let mask:Uint8Array;
+      let mask:Uint8Array=new Uint8Array(0);
       let gpuSucceeded=false;
       if(resizer!=null){
         try {
