@@ -28,14 +28,16 @@ jobs:
         run: npx expo export --platform android --output-dir /tmp/pss1-js-preflight
       - name: Generate Android native project
         run: npx expo prebuild --platform android --no-install
-      - name: Build release APK with embedded JS (ARM64)
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --max-workers=2
-      - name: Verify embedded JavaScript bundle
+      - name: Build release APK with embedded JS (ARM64 + emulator x86_64)
+        run: cd android && chmod +x gradlew && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon --max-workers=2
+      - name: Verify release APK (JS and phone/emulator ABIs)
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           unzip -l "$APK" | grep -q 'assets/index.android.bundle'
-          echo "Release APK includes assets/index.android.bundle"
+          unzip -l "$APK" | grep -q 'lib/arm64-v8a/libreactnative.so'
+          unzip -l "$APK" | grep -q 'lib/x86_64/libreactnative.so'
+          echo "Release includes embedded JavaScript and both native architectures"
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
