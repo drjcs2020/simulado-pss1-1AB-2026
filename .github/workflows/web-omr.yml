@@ -1,0 +1,20 @@
+name: PSS1 Web optical reader regressions
+on:
+  push:
+    paths:
+      - 'omr-worker.js'
+      - 'printed-card.js'
+      - 'scanner.html'
+      - 'android-native/tests/fixtures/printed-matrix.ts'
+      - 'tests/web-omr.test.cjs'
+      - '.github/workflows/web-omr.yml'
+  workflow_dispatch:
+jobs:
+  actual-printed-cards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/web-omr.test.cjs
