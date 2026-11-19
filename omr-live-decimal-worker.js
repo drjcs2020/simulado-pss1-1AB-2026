@@ -132,10 +132,11 @@ function locate(mask,w,h,anchors){
     const value=sample(mask,w,h,p.x,p.y,rx,ry);
     readings.push({digit:d,fill:value,x:p.x,y:p.y});
    }
+   const options=readings.map(r=>({digit:r.digit,x:r.x,y:r.y,fill:r.fill}));
    readings.sort((a,b)=>b.fill-a.fill);
    const first=readings[0],second=readings[1],confident=first.fill>=.69&&first.fill-second.fill>=.16;
    columns.push({digit:confident?first.digit:null,candidate:first.digit,confidence:first.fill-second.fill,
-     x:first.x,y:first.y,fill:first.fill});
+     x:first.x,y:first.y,fill:first.fill,options});
   }
   const value=columns.every(c=>c.digit!==null)?columns[0].digit*10+columns[1].digit:null;
   const valid=value!==null&&value<=15;
