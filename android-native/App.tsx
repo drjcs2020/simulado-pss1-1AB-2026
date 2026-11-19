@@ -38,12 +38,11 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
  const lastRun=useSharedValue(0);
  const lastFeedbackAt=useSharedValue(0);
  const lastFeedback=useSharedValue('');
- const [previewSize,setPreviewSize]=useState({width:0,height:0});
  const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
  const onFeedbackRN=useCallback((text:string)=>onFeedback(text),[onFeedback]);
  if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
- return <View style={styles.fullScreen} onLayout={e=>setPreviewSize({width:e.nativeEvent.layout.width,height:e.nativeEvent.layout.height})}>
-  <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface" pixelFormat="yuv"
+ return <View style={styles.fullScreen}>
+  <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface" pixelFormat="yuv" enablePhysicalBufferRotation={true}
    onError={e=>onFeedback('Erro de câmera: '+String(e.message||e))}
    onFrame={(frame,render)=>{
     'worklet';
@@ -52,7 +51,9 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
     render(({canvas,frameTexture})=>{
      canvas.drawImage(frameTexture,0,0);
      if(latest?.boxes.length!==10)return;
-     const sx=frame.width/PROCESS_HEIGHT,sy=frame.height/PROCESS_WIDTH;
+     // O quadro é fisicamente rotacionado à orientação da tela pelo SkiaCamera.
+     // Canvas e análise usam a mesma imagem: sem troca arbitrária de eixos.
+     const sx=frame.width/PROCESS_WIDTH,sy=frame.height/PROCESS_HEIGHT;
      for(let q=0;q<10;q++){
       const box=latest.boxes[q],values=latest.results[q]?.columns;
       if(!values)continue;
@@ -61,7 +62,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
        if(digit===null||digit===undefined)continue;
        const u=col===0?.329:.673,v=.149+.0855*digit;
        const cx=box.x+box.w*u,cy=box.y+box.h*v;
-       canvas.drawCircle((PROCESS_HEIGHT-cy)*sx,cx*sy,Math.max(7,box.w*.065*sx),greenPaint);
+       canvas.drawCircle(cx*sx,cy*sy,Math.max(7,box.w*.095*sx),greenPaint);
       }
      }
     });
@@ -110,21 +111,6 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
     });
     if(!queued)frame.dispose();
    }}/>
-  {boxes.length===10&&previewSize.width>0&&<Pressable style={StyleSheet.absoluteFill} onPress={e=>{
-    // Mesmo mapeamento de orientação 90° usado na camada Skia.
-    const x=e.nativeEvent.locationX,y=e.nativeEvent.locationY;
-    const px=(y/previewSize.height)*PROCESS_WIDTH,py=(1-x/previewSize.width)*PROCESS_HEIGHT;
-    for(let q=0;q<10;q++){
-      const b=boxes[q];
-      if(px<b.x||px>b.x+b.w||py<b.y||py>b.y+b.h)continue;
-      const digit=Math.round(((py-b.y)/b.h-.149)/.0855),tens=(px-b.x)/b.w<.5;
-      if(digit<0||digit>9||(tens&&digit>1))return;
-      const prev=manual[q]??0;
-      const value=tens?digit*10+prev%10:Math.floor(prev/10)*10+digit;
-      if(value<=15)manualChange(q,value);
-      return;
-    }
-   }}/>}
   <View style={styles.cameraTop} pointerEvents="box-none">
     <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
     <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ 10/10 CONFIRMADAS':feedback||'● LENDO CARTÃO'}</Text></View>
