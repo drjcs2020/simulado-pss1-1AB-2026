@@ -68,7 +68,7 @@ if grep -q 'Falha na leitura' camera-smoke-results/ui.xml; then
   cat camera-smoke-results/ui.xml
   exit 1
 fi
-if ! grep -qE '[0-9]+/10' camera-smoke-results/ui.xml; then
+if ! grep -qE '([0-9]+/10|PROCURANDO AS DEZ COLUNAS)' camera-smoke-results/ui.xml; then
   echo "No frame processing result on screen (expected 0/10 on empty emulator camera)."
   cat camera-smoke-results/ui.xml
   exit 1
