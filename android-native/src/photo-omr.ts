@@ -1,4 +1,5 @@
-import {decodeBinary, type Detection} from './omr';
+import type {Detection} from './omr';
+import {decodePrintedCard} from './printed-card-omr';
 
 // JPEG pequeno (após redimensionamento nativo) -> pixels RGBA -> OMR.
 // Dependências puramente JS: nenhum processador de quadros, Vulkan ou OpenCV.
@@ -49,11 +50,11 @@ export function scanPhotoBase64(base64Text:string):PhotoReading {
  const {data,width,height}=jpeg.decode(bytes,{useTArray:true,formatAsRGBA:true,maxMemoryUsageInMB:64});
  if(!data||width<32||height<32)throw Error('Foto JPEG inválida');
  // A câmera pode retornar retrato ou paisagem. Nunca adivinhar qual lado é a questão 1.
- const rotations: Array<0|90|180|270>=width>=height?[0,180,90,270]:[90,270,0,180];
+ const rotations: Array<0|90|180|270>=[0,180,90,270];
  let best:PhotoReading|null=null;
  for(const rotation of rotations){
   const bin=rgbaToBinary(data,width,height,rotation);
-  const detection=decodeBinary(bin,640,480);
+  const detection=decodePrintedCard(bin,640,480);
   const accepted=detection.results.filter(r=>r.valid).length;
   const found:PhotoReading={detection,rotation,accepted,width:640,height:480};
   if(!best||accepted>best.accepted||(accepted===best.accepted&&detection.boxes.length>best.detection.boxes.length))best=found;
