@@ -1,124 +1,114 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
+import {Alert,ActivityIndicator,Image,Pressable,ScrollView,StyleSheet,Text,TextInput,View,Vibration} from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 import {CameraView,useCameraPermissions} from 'expo-camera';
-import {Skia,PaintStyle} from '@shopify/react-native-skia';
-import {useAsyncRunner,useCameraDevice,useCameraPermission} from 'react-native-vision-camera';
-import {SkiaCamera} from 'react-native-vision-camera-skia';
-import {scheduleOnRN} from 'react-native-worklets';
-import {useSharedValue} from 'react-native-reanimated';
 import {ANSWER_KEYS,APP_TITLE,ClassId,ExamType,ROSTERS,SCHOOL,Student,lookupStudent,parseStudentQR} from './src/data';
 import {grade,Mark,scoreQuestion,toggleBit} from './src/scoring';
-import {CardBox,Detection,decodeBinary,luminanceToBinary,stableReading} from './src/omr';
+import {CardBox,Detection,stableReading} from './src/omr';
+import {scanPhotoBase64} from './src/photo-omr';
 import {loadEndpoint,pendingGrade,readSheet,resetGrade,saveGrade,setEndpoint} from './src/sheets';
 
 const BLUE='#1e3a8a',GREEN='#16a34a',BG='#f1f5f9',WHITE='#fff';
-const PROCESS_WIDTH=640,PROCESS_HEIGHT=480;
 type Tab='correct'|'grades'|'stats'|'config';
 type Mode='none'|'qr'|'qr-success'|'omr';
 function format(n:number){return n.toFixed(2).replace('.',',')}
-const greenPaint=Skia.Paint();
-greenPaint.setColor(Skia.Color('#22e87e'));
-greenPaint.setStyle(PaintStyle.Stroke);
-greenPaint.setStrokeWidth(3.5);
-const amberPaint=Skia.Paint();amberPaint.setColor(Skia.Color('#fbbf24'));amberPaint.setStyle(PaintStyle.Stroke);amberPaint.setStrokeWidth(2);
 function Bubble({label,active,onPress}:{label:string,active:boolean,onPress:()=>void}){
  return <Pressable onPress={onPress} style={[styles.bubble,active&&styles.bubbleOn]}><Text style={[styles.bubbleText,active&&{color:WHITE}]}>{label}</Text></Pressable>;
 }
 function Button({label,onPress,kind='primary',disabled=false}:{label:string,onPress:()=>void,kind?:'primary'|'green'|'light'|'orange',disabled?:boolean}){
  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,styles[kind],disabled&&{opacity:.45}]}><Text style={[styles.buttonText,kind==='light'&&{color:'#1b3554'}]}>{label}</Text></Pressable>;
 }
-function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFeedback,manualChange}:{
- onStable:(values:number[],boxes:CardBox[])=>void;
- onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];stable:boolean;feedback:string;onFeedback:(text:string)=>void;manualChange:(q:number,n:number)=>void;
-}){
- const device=useCameraDevice('back');
- const asyncRunner=useAsyncRunner();
- const tracker=useSharedValue({signature:'',count:0,emitted:''});
- const recent=useSharedValue<Detection|null>(null);
- const lastRun=useSharedValue(0);
- const lastFeedbackAt=useSharedValue(0);
- const lastFeedback=useSharedValue('');
- const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
- const onFeedbackRN=useCallback((text:string)=>onFeedback(text),[onFeedback]);
- if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
+function CardCamera({onStable,onExit,onReview,stable}:{onStable:(values:number[],boxes:CardBox[])=>void;onExit:()=>void;onReview:()=>void;stable:boolean}){
+ const camera=useRef<CameraView|null>(null);
+ const [permission,requestPermission]=useCameraPermissions();
+ const [ready,setReady]=useState(false);
+ const [feedback,setFeedback]=useState('● LENDO CARTÃO');
+ const [snapshot,setSnapshot]=useState<{uri:string;detection:Detection}|null>(null);
+ const [imageWidth,setImageWidth]=useState(0);
+ const previous=useRef({signature:'',count:0});
+ const confirmed=useRef(false);
+ const running=useRef(false);
+ useEffect(()=>{
+  if(!permission?.granted)requestPermission().catch(()=>setFeedback('Permissão da câmera negada'));
+ },[permission?.granted,requestPermission]);
+ useEffect(()=>{
+  if(!permission?.granted||!ready||stable)return;
+  let stopped=false;
+  let timer:ReturnType<typeof setTimeout>|null=null;
+  const capture=async()=>{
+   if(stopped||running.current||confirmed.current)return;
+   running.current=true;
+   try{
+    // Expo Camera: captura local, sem frame processor, Skia ou Vulkan.
+    const picture=await camera.current?.takePictureAsync({quality:.84,skipProcessing:false,shutterSound:false});
+    if(!picture?.uri)throw Error('A câmera não entregou a imagem');
+    const ctx=ImageManipulator.ImageManipulator.manipulate(picture.uri,{maxWidth:960,maxHeight:960});
+    ctx.resize({width:640});
+    const img=await ctx.renderAsync();
+    const saved=await img.saveAsync({format:ImageManipulator.SaveFormat.JPEG,compress:.87,base64:true});
+    if(!saved.base64)throw Error('A câmera não gerou JPEG');
+    const reading=scanPhotoBase64(saved.base64);
+    const detection=reading.detection;
+    const valid=reading.accepted;
+    if(stopped)return;
+    setFeedback(valid===10?'✓ 10/10 IDENTIFICADAS':valid>0?`${valid}/10 IDENTIFICADAS`:'● PROCURANDO AS DEZ COLUNAS');
+    const next=stableReading(previous.current,detection);
+    previous.current={signature:next.signature,count:next.count};
+    if(valid===10&&!snapshot){
+      // Imagem de conferência realinhada à mesma orientação usada pelo detector.
+      const context=ImageManipulator.ImageManipulator.manipulate(saved.uri);
+      if(reading.rotation)context.rotate(reading.rotation);
+      context.resize({width:640,height:480});
+      const displayed=await context.renderAsync();
+      const aligned=await displayed.saveAsync({format:ImageManipulator.SaveFormat.JPEG,compress:.85});
+      if(!stopped)setSnapshot({uri:aligned.uri,detection});
+    }
+    if(next.stable&&next.values&&!confirmed.current){
+     confirmed.current=true;
+     onStable(next.values,detection.boxes);
+     setFeedback('✓ LEITURA CONFIRMADA');
+    }
+   }catch(e){
+    if(!stopped)setFeedback('Falha da câmera: '+String(e instanceof Error?e.message:e).slice(0,100));
+    previous.current={signature:'',count:0};
+   }finally{
+    running.current=false;
+    if(!stopped&&!confirmed.current)timer=setTimeout(capture,900);
+   }
+  };
+  timer=setTimeout(capture,600);
+  return ()=>{stopped=true;if(timer)clearTimeout(timer)};
+ },[permission?.granted,ready,stable,onStable]);
+ const canShow=stable&&snapshot?.detection.boxes.length===10;
+ const circles: Array<{x:number;y:number;r:number;key:string}>=[];
+ if(canShow){
+  snapshot!.detection.boxes.forEach((box,q)=>{
+   const cols=snapshot!.detection.results[q]?.columns||[];
+   cols.forEach((col,index)=>{
+    if(col.digit===null)return;
+    circles.push({x:box.x+box.w*(index===0?.329:.673),y:box.y+box.h*(.149+.0855*col.digit),r:Math.max(5,box.w*.09),key:q+'-'+index});
+   });
+  });
+ }
  return <View style={styles.fullScreen}>
-  <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface" pixelFormat="yuv" enablePhysicalBufferRotation={true}
-   onError={e=>onFeedback('Erro de câmera: '+String(e.message||e))}
-   onFrame={(frame,render)=>{
-    'worklet';
-    // Renderizar a prévia SEM esperar OpenCV ou o detector das respostas.
-    const latest=recent.value;
-    render(({canvas,frameTexture})=>{
-     canvas.drawImage(frameTexture,0,0);
-     if(latest?.boxes.length!==10)return;
-     // O quadro é fisicamente rotacionado à orientação da tela pelo SkiaCamera.
-     // Canvas e análise usam a mesma imagem: sem troca arbitrária de eixos.
-     const sx=frame.width/PROCESS_WIDTH,sy=frame.height/PROCESS_HEIGHT;
-     for(let q=0;q<10;q++){
-      const box=latest.boxes[q],values=latest.results[q]?.columns;
-      if(!values)continue;
-      for(let col=0;col<2;col++){
-       const digit=values[col]?.digit;
-       if(digit===null||digit===undefined)continue;
-       const u=col===0?.329:.673,v=.149+.0855*digit;
-       const cx=box.x+box.w*u,cy=box.y+box.h*v;
-       canvas.drawCircle(cx*sx,cy*sy,Math.max(7,box.w*.095*sx),greenPaint);
-      }
-     }
-    });
-    // Analisar no máximo 2,8 vezes por segundo; a câmera permanece fluida.
-    const now=Date.now();
-    if(now-lastRun.value<700){frame.dispose();return;}
-    lastRun.value=now;
-    const queued=asyncRunner.runAsync(()=>{
-     'worklet';
-     try{
-      // YUV é legível na CPU; evita Vulkan, GPU Resizer e inicializações nativas frágeis.
-      const planes=frame.getPlanes();
-      const plane=planes[0];
-      if(!plane)throw Error('O quadro da câmera não possui plano YUV');
-      const mask=luminanceToBinary(
-        new Uint8Array(plane.getPixelBuffer()),
-        plane.width,plane.height,plane.bytesPerRow,PROCESS_WIDTH,PROCESS_HEIGHT
-      );
-      const output=decodeBinary(mask,PROCESS_WIDTH,PROCESS_HEIGHT);
-      const found=output.error?null:output;
-      recent.value=found;
-      const valid=found?.results.filter(r=>r.valid).length??0;
-      const next=valid+'/10';
-      if(next!==lastFeedback.value&&Date.now()-lastFeedbackAt.value>950){
-        lastFeedback.value=next;
-        lastFeedbackAt.value=Date.now();
-        scheduleOnRN(onFeedbackRN,next);
-      }
-      const stable=stableReading(tracker.value,found);
-      tracker.value={signature:stable.signature,count:stable.count,emitted:tracker.value.emitted};
-      if(stable.stable&&stable.signature!==tracker.value.emitted&&found?.boxes.length===10&&stable.values){
-       tracker.value={signature:stable.signature,count:stable.count,emitted:stable.signature};
-       scheduleOnRN(onStableRN,stable.values,found.boxes);
-      }
-     }catch(e){
-      const detail='Falha na leitura: '+String(e instanceof Error?e.message:e).slice(0,110);
-      if(detail!==lastFeedback.value&&Date.now()-lastFeedbackAt.value>1300){
-        lastFeedback.value=detail;lastFeedbackAt.value=Date.now();
-        scheduleOnRN(onFeedbackRN,detail);
-      }
-      recent.value=null;
-      tracker.value={signature:'',count:0,emitted:tracker.value.emitted};
-     }finally{
-      frame.dispose();
-     }
-    });
-    if(!queued)frame.dispose();
-   }}/>
+  {permission?.granted?
+   <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back" active={!stable}
+    onCameraReady={()=>setReady(true)} onMountError={e=>setFeedback('Falha ao abrir a câmera: '+e.message)}/>:
+   <View style={{padding:24}}><Button label="Permitir câmera" onPress={()=>requestPermission().catch(()=>{})}/></View>}
+  {canShow&&<View style={{position:'absolute',top:'20%',left:12,right:12,aspectRatio:4/3,backgroundColor:'#fff'}}
+    onLayout={e=>setImageWidth(e.nativeEvent.layout.width)}>
+    <Image source={{uri:snapshot!.uri}} style={StyleSheet.absoluteFill} resizeMode="stretch"/>
+    {circles.map(c=><View key={c.key} pointerEvents="none" style={{position:'absolute',
+     left:(c.x-c.r)*imageWidth/640,top:(c.y-c.r)*imageWidth/640,
+     width:2*c.r*imageWidth/640,height:2*c.r*imageWidth/640,
+     borderRadius:c.r*imageWidth/640,borderWidth:3,borderColor:'#00de66'}}/>)}
+   </View>}
   <View style={styles.cameraTop} pointerEvents="box-none">
-    <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
-    <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ 10/10 CONFIRMADAS':feedback||'● LENDO CARTÃO'}</Text></View>
+   <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
+   <View style={styles.liveBadge}><Text style={styles.whiteText}>{feedback}</Text></View>
   </View>
   <View style={styles.cameraReview} pointerEvents="box-none">
-    <Pressable onPress={onReview} style={styles.reviewButton}>
-      <Text style={styles.whiteText}>Conferir respostas</Text>
-    </Pressable>
+   <Pressable onPress={onReview} style={styles.reviewButton}><Text style={styles.whiteText}>Conferir respostas</Text></Pressable>
   </View>
  </View>;
 }
@@ -132,7 +122,6 @@ export default function App(){
  const [grades,setGrades]=useState<Record<string,any>>({});
  const [lastBoxes,setLastBoxes]=useState<CardBox[]>([]);
  const edited=useRef(new Set<number>());
- const {hasPermission,requestPermission}=useCameraPermission();
  const [qrPermission,requestQRPermission]=useCameraPermissions();
  const qrHandling=useRef(false);
  const qrTransition=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -140,9 +129,6 @@ export default function App(){
  const score=useMemo(()=>marks.every(m=>m!==null)?grade(marks,student.type).total:0,[marks,student.type]);
  const key=group+'-'+studentNumber;
  useEffect(()=>{loadEndpoint().then(setEndpointText).catch(()=>{});},[]);
- useEffect(()=>{
-  if(mode==='omr'&&!hasPermission)requestPermission().catch(()=>setStatus('Permissão para câmera negada.'));
- },[mode,hasPermission,requestPermission]);
  useEffect(()=>{
   if(mode==='qr'&&!qrPermission?.granted)requestQRPermission().catch(()=>setStatus('Permissão para QR negada.'));
  },[mode,qrPermission?.granted,requestQRPermission]);
@@ -207,9 +193,7 @@ export default function App(){
    <View style={styles.cameraTop}><Pressable onPress={()=>{qrHandling.current=false;setMode('none')}} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable></View>
    {!!status&&<View style={{position:'absolute',top:96,left:16,right:16}}><Text style={styles.whiteText}>{status}</Text></View>}
   </View>;
- if(mode==='omr'&&!hasPermission)return <View style={styles.fullScreen}><Text style={[styles.whiteText,{textAlign:'center',padding:14}]}>Permissão de câmera necessária.</Text><Button label="Permitir câmera" onPress={()=>requestPermission().catch(()=>{})}/><Button label="Voltar" kind="light" onPress={()=>setMode('none')}/></View>;
- if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes} stable={isStable} feedback={liveFeedback} onFeedback={setLiveFeedback}
-    manualChange={(q,n)=>{edited.current.add(q);setMarks(m=>m.map((v,i)=>i===q?n:v))}}/>;
+ if(mode==='omr')return <CardCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} stable={isStable}/>;
  return <View style={styles.main}>
   <View style={styles.header}><Text style={styles.appName}>{APP_TITLE}</Text><Text style={styles.school}>{SCHOOL}</Text></View>
   <View style={styles.tabs}>{([['correct','Escanear & Corrigir'],['grades','Boletim'],['stats','Estatísticas'],['config','Planilha']] as const).map(([id,title])=>
