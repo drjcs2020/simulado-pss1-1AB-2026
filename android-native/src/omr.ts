@@ -21,6 +21,42 @@ export function stableReading(previous:{signature:string;count:number},detected:
  const count=signature===previous.signature?previous.count+1:1;
  return {signature,count,stable:count>=3,values};
 }
+// Alternativa CPU quando o resizer Vulkan não inicia no Android.
+// No formato YUV, o primeiro plano fornece a luminância (Y).
+// A amostragem respeita bytesPerRow: muitas câmeras adicionam padding por linha.
+export function luminanceToBinary(
+ source:Uint8Array,width:number,height:number,bytesPerRow:number,
+ outWidth=640,outHeight=480
+):Uint8Array {
+ 'worklet';
+ if(width<1||height<1||bytesPerRow<width||
+    source.length<(height-1)*bytesPerRow+width)throw Error('Plano de luminância inválido.');
+ const gray=new Uint8Array(outWidth*outHeight);
+ const histogram=new Uint32Array(256);
+ for(let y=0;y<outHeight;y++){
+  const sy=Math.min(height-1,Math.floor((y+.5)*height/outHeight));
+  for(let x=0;x<outWidth;x++){
+   const sx=Math.min(width-1,Math.floor((x+.5)*width/outWidth));
+   const value=source[sy*bytesPerRow+sx];
+   gray[y*outWidth+x]=value;histogram[value]++;
+  }
+ }
+ // Limiar de Otsu: adapta o contraste para luz natural ou fluorescente.
+ const count=gray.length;let sum=0;
+ for(let i=0;i<256;i++)sum+=i*histogram[i];
+ let best=-1,threshold=128;
+ let leftCount=0,leftSum=0;
+ for(let i=0;i<256;i++){
+  leftCount+=histogram[i];leftSum+=i*histogram[i];
+  if(!leftCount||leftCount===count)continue;
+  const meanLeft=leftSum/leftCount;
+  const meanRight=(sum-leftSum)/(count-leftCount);
+  const between=leftCount*(count-leftCount)*(meanLeft-meanRight)*(meanLeft-meanRight);
+  if(between>best){best=between;threshold=i}
+ }
+ for(let i=0;i<gray.length;i++)gray[i]=gray[i]<=threshold?255:0;
+ return gray;
+}
 export function decodeBinary(dark:Uint8Array,w:number,h:number):Detection {
  'worklet';
  if(w<=0||h<=0||dark.length!==w*h) throw Error('Imagem binária inválida.');
