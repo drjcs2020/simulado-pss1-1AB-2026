@@ -80,7 +80,9 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
      let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
      try{
       let mask:Uint8Array;
+      let gpuSucceeded=false;
       if(resizer!=null){
+        try {
         // GPU rápida, quando Vulkan funciona no aparelho.
         resized=resizer.resize(frame) as GPUFrame;
         const pixels=new Uint8Array(resized.getPixelBuffer());
@@ -91,7 +93,12 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
         OpenCV.threshold(gray,bin,0,255,ThresholdTypes.THRESH_BINARY_INV | ThresholdTypes.THRESH_OTSU);
         const binary=bin.toBuffer('uint8');
         mask=new Uint8Array(binary.buffer);
-      }else{
+        gpuSucceeded=true;
+        }catch(_gpuError){
+          // Falha de shader, memória Vulkan ou conversão não impede CPU.
+        }
+      }
+      if(!gpuSucceeded){
         // Fallback obrigatório: usa o plano de luminância YUV da câmera.
         // Não depende de Vulkan nem de OpenCV para reconhecer o cartão.
         const planes=frame.getPlanes();
