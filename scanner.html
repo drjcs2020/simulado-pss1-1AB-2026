@@ -113,7 +113,7 @@ function applyReading(result){
  state.stableCount=state.signature===signature?state.stableCount+1:1;
  state.signature=signature;
  if(state.stableCount>=2){
-  for(let q=0;q<10;q++)if(!state.edited.has(q)&&values[q]!==null)state.marks[q]=values[q];
+  for(let q=0;q<10;q++)if(!state.edited.has(q))state.marks[q]=values[q];
  }
  const valid=values.filter(v=>v!==null).length;
  const bad=result.results.findIndex(r=>r.rawValue!==null&&r.rawValue!==undefined&&r.rawValue>15);
@@ -146,9 +146,9 @@ function readFrame(){
  if(state.mode!=='camera'||!state.stream)return;
  if(state.inFlight){schedule(180);return}
  if(!video.videoWidth||!video.videoHeight||video.readyState<2){schedule(330);return}
- const targetW=640;
- processing.width=targetW;
- processing.height=Math.max(180,Math.round(video.videoHeight*targetW/video.videoWidth));
+ const scale=Math.min(640/video.videoWidth,720/video.videoHeight,1);
+ processing.width=Math.max(240,Math.round(video.videoWidth*scale));
+ processing.height=Math.max(180,Math.round(video.videoHeight*scale));
  try{
   const p=processing.getContext('2d',{willReadFrequently:true});
   p.drawImage(video,0,0,processing.width,processing.height);
