@@ -20,7 +20,8 @@
     "expo-camera": "~58.0.14",
     "expo-image-manipulator": "~58.0.16",
     "jpeg-js": "^0.4.4",
-    "base64-js": "^1.5.1"
+    "base64-js": "^1.5.1",
+    "expo-image-picker": "~58.0.10"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
