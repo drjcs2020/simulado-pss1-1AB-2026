@@ -29,21 +29,28 @@ function Bubble({label,active,onPress}:{label:string,active:boolean,onPress:()=>
 function Button({label,onPress,kind='primary',disabled=false}:{label:string,onPress:()=>void,kind?:'primary'|'green'|'light'|'orange',disabled?:boolean}){
  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,styles[kind],disabled&&{opacity:.45}]}><Text style={[styles.buttonText,kind==='light'&&{color:'#1b3554'}]}>{label}</Text></Pressable>;
 }
-function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:{
+function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFeedback,manualChange}:{
  onStable:(values:number[],boxes:CardBox[])=>void;
- onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];stable:boolean;manualChange:(q:number,n:number)=>void;
+ onExit:()=>void;onReview:()=>void;manual:Mark[];boxes:CardBox[];stable:boolean;feedback:string;onFeedback:(text:string)=>void;manualChange:(q:number,n:number)=>void;
 }){
  const device=useCameraDevice('back');
  const asyncRunner=useAsyncRunner();
- const {resizer}=useResizer({width:PROCESS_WIDTH,height:PROCESS_HEIGHT,channelOrder:'bgr',dataType:'uint8',pixelLayout:'interleaved',scaleMode:'contain'});
+ const {resizer,error:resizerError}=useResizer({width:PROCESS_WIDTH,height:PROCESS_HEIGHT,channelOrder:'bgr',dataType:'uint8',pixelLayout:'interleaved',scaleMode:'contain'});
  const tracker=useSharedValue({signature:'',count:0,emitted:''});
  const recent=useSharedValue<Detection|null>(null);
  const lastRun=useSharedValue(0);
+ const lastFeedbackAt=useSharedValue(0);
+ const lastFeedback=useSharedValue('');
  const [previewSize,setPreviewSize]=useState({width:0,height:0});
  const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
+ const onFeedbackRN=useCallback((text:string)=>onFeedback(text),[onFeedback]);
+ useEffect(()=>{
+  if(resizerError)onFeedback('Leitura indisponível: '+String(resizerError));
+ },[resizerError,onFeedback]);
  if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
  return <View style={styles.fullScreen} onLayout={e=>setPreviewSize({width:e.nativeEvent.layout.width,height:e.nativeEvent.layout.height})}>
   <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface"
+   onError={e=>onFeedback('Erro de câmera: '+String(e.message||e))}
    onFrame={(frame,render)=>{
     'worklet';
     // Renderizar a prévia SEM esperar OpenCV ou o detector das respostas.
@@ -66,23 +73,37 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:
     });
     // Analisar no máximo 2,8 vezes por segundo; a câmera permanece fluida.
     const now=Date.now();
-    if(now-lastRun.value<350){frame.dispose();return;}
+    if(now-lastRun.value<450){frame.dispose();return;}
     lastRun.value=now;
+    if(resizer==null){
+      if(now-lastFeedbackAt.value>1400){
+        lastFeedbackAt.value=now;
+        scheduleOnRN(onFeedbackRN,'Processador da câmera indisponível');
+      }
+      frame.dispose();return;
+    }
     const queued=asyncRunner.runAsync(()=>{
      'worklet';
      let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
      try{
-      resized=resizer!.resize(frame) as GPUFrame;
+      resized=resizer.resize(frame) as GPUFrame;
       const pixels=new Uint8Array(resized.getPixelBuffer());
       src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
       gray=Mat.create(0,0,DataTypes.CV_8U);
       bin=Mat.create(0,0,DataTypes.CV_8U);
       OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
-      OpenCV.threshold(gray,bin,140,255,ThresholdTypes.THRESH_BINARY_INV);
+      OpenCV.threshold(gray,bin,0,255,ThresholdTypes.THRESH_BINARY_INV | ThresholdTypes.THRESH_OTSU);
       const binary=bin.toBuffer('uint8');
       const output=decodeBinary(new Uint8Array(binary.buffer),binary.cols,binary.rows);
       const found=output.error?null:output;
       recent.value=found;
+      const valid=found?.results.filter(r=>r.valid).length??0;
+      const next=valid+'/10';
+      if(next!==lastFeedback.value&&Date.now()-lastFeedbackAt.value>950){
+        lastFeedback.value=next;
+        lastFeedbackAt.value=Date.now();
+        scheduleOnRN(onFeedbackRN,next);
+      }
       const stable=stableReading(tracker.value,found);
       tracker.value={signature:stable.signature,count:stable.count,emitted:tracker.value.emitted};
       if(stable.stable&&stable.signature!==tracker.value.emitted&&found?.boxes.length===10&&stable.values){
@@ -90,6 +111,11 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:
        scheduleOnRN(onStableRN,stable.values,found.boxes);
       }
      }catch(e){
+      const detail='Falha na leitura: '+String(e instanceof Error?e.message:e).slice(0,110);
+      if(detail!==lastFeedback.value&&Date.now()-lastFeedbackAt.value>1300){
+        lastFeedback.value=detail;lastFeedbackAt.value=Date.now();
+        scheduleOnRN(onFeedbackRN,detail);
+      }
       recent.value=null;
       tracker.value={signature:'',count:0,emitted:tracker.value.emitted};
      }finally{
@@ -115,7 +141,7 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,manualChange}:
    }}/>}
   <View style={styles.cameraTop} pointerEvents="box-none">
     <Pressable onPress={onExit} style={styles.exit}><Text style={styles.whiteText}>✕ Sair</Text></Pressable>
-    <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ LEITURA CONFIRMADA':'● LENDO CARTÃO'}</Text></View>
+    <View style={styles.liveBadge}><Text style={styles.whiteText}>{stable?'✓ 10/10 CONFIRMADAS':feedback||'● LENDO CARTÃO'}</Text></View>
   </View>
   <View style={styles.cameraReview} pointerEvents="box-none">
     <Pressable onPress={onReview} style={styles.reviewButton}>
@@ -128,7 +154,7 @@ export default function App(){
  const [tab,setTab]=useState<Tab>('correct'),[mode,setMode]=useState<Mode>('none');
  const [group,setGroup]=useState<ClassId>('1A'),[studentNumber,setStudentNumber]=useState(ROSTERS['1A'][0].num);
  const [marks,setMarks]=useState<Mark[]>(Array(10).fill(null));
- const [isStable,setIsStable]=useState(false),[status,setStatus]=useState('');
+ const [isStable,setIsStable]=useState(false),[status,setStatus]=useState(''),[liveFeedback,setLiveFeedback]=useState('');
  const [endpoint,setEndpointText]=useState(''),[busy,setBusy]=useState(false);
  const [selectedCorrection,setSelectedCorrection]=useState<number|null>(null);
  const [grades,setGrades]=useState<Record<string,any>>({});
@@ -152,7 +178,7 @@ export default function App(){
  const chooseGroup=(newGroup:ClassId)=>{setGroup(newGroup);setStudentNumber(ROSTERS[newGroup][0].num);setMarks(Array(10).fill(null));edited.current.clear();setStatus('');setIsStable(false)};
  const chooseStudent=(n:number)=>{setStudentNumber(n);setMarks(Array(10).fill(null));edited.current.clear();setIsStable(false);setStatus('')};
  const enterQR=()=>{qrHandling.current=false;setStatus('');setMode('qr')};
- const enterOMR=()=>{edited.current.clear();setLastBoxes([]);setIsStable(false);setStatus('');setMode('omr')};
+ const enterOMR=()=>{edited.current.clear();setLastBoxes([]);setIsStable(false);setStatus('');setLiveFeedback('');setMode('omr')};
  const stableCallback=useCallback((values:number[],boxes:CardBox[])=>{
   Vibration.vibrate(75);
   setLastBoxes(boxes);
@@ -170,6 +196,7 @@ export default function App(){
   edited.current.clear();
   setLastBoxes([]);
   setIsStable(false);
+  setLiveFeedback('');
   // Fechar o leitor QR antes de abrir a câmera do cartão: evita duas sessões simultâneas.
   setMode('qr-success');
   qrTransition.current=setTimeout(()=>{qrTransition.current=null;setMode('omr')},600);
@@ -209,7 +236,7 @@ export default function App(){
    {!!status&&<View style={{position:'absolute',top:96,left:16,right:16}}><Text style={styles.whiteText}>{status}</Text></View>}
   </View>;
  if(mode==='omr'&&!hasPermission)return <View style={styles.fullScreen}><Text style={[styles.whiteText,{textAlign:'center',padding:14}]}>Permissão de câmera necessária.</Text><Button label="Permitir câmera" onPress={()=>requestPermission().catch(()=>{})}/><Button label="Voltar" kind="light" onPress={()=>setMode('none')}/></View>;
- if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes} stable={isStable}
+ if(mode==='omr')return <LiveCamera onStable={stableCallback} onExit={()=>setMode('none')} onReview={()=>setMode('none')} manual={marks} boxes={lastBoxes} stable={isStable} feedback={liveFeedback} onFeedback={setLiveFeedback}
     manualChange={(q,n)=>{edited.current.add(q);setMarks(m=>m.map((v,i)=>i===q?n:v))}}/>;
  return <View style={styles.main}>
   <View style={styles.header}><Text style={styles.appName}>{APP_TITLE}</Text><Text style={styles.school}>{SCHOOL}</Text></View>
