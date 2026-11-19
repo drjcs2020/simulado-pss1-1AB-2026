@@ -24,6 +24,8 @@ jobs:
       # Ubuntu GitHub runner já oferece Android SDK; evita aceitação interativa de licenças.
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Validate JS bundle before Gradle
+        run: npx expo export --platform android --output-dir /tmp/pss1-js-preflight
       - name: Generate Android native project
         run: npx expo prebuild --platform android --no-install
       - name: Build release APK with embedded JS (ARM64)
