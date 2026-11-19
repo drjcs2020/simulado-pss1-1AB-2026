@@ -33,6 +33,7 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
  const [ready,setReady]=useState(false);
  const [feedback,setFeedback]=useState('● LENDO CARTÃO');
  const [snapshot,setSnapshot]=useState<{uri:string;detection:Detection}|null>(null);
+ const lastSnapshot=useRef(false);
  const [imageWidth,setImageWidth]=useState(0);
  const previous=useRef({signature:'',count:0});
  const confirmed=useRef(false);
@@ -56,10 +57,11 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
     const valid=reading.accepted;
     if(stopped)return;
     if(valid>0)onPartial(detection.results.map(r=>r.valid?r.value:null));
-    setFeedback(valid===10?'✓ 10/10 IDENTIFICADAS':valid>0?`${valid}/10 IDENTIFICADAS`:'● PROCURANDO AS DEZ COLUNAS');
+    setFeedback(valid===10?'✓ 10/10 IDENTIFICADAS':valid>0?`${valid}/10 IDENTIFICADAS`:'● ENQUADRE A GRADE DE RESPOSTAS');
     const next=stableReading(previous.current,detection);
     previous.current={signature:next.signature,count:next.count};
-    if(valid===10&&!snapshot){
+    if(valid>0&&!lastSnapshot.current){
+      lastSnapshot.current=true;
       // Imagem de conferência realinhada à mesma orientação usada pelo detector.
       const context=ImageManipulator.ImageManipulator.manipulate(saved.uri);
       if(reading.rotation)context.rotate(reading.rotation);
@@ -84,14 +86,16 @@ function CardCamera({onStable,onPartial,onExit,onReview,stable}:{onStable:(value
   timer=setTimeout(capture,600);
   return ()=>{stopped=true;if(timer)clearTimeout(timer)};
  },[permission?.granted,ready,stable,onStable,onPartial]);
- const canShow=stable&&snapshot?.detection.boxes.length===10;
+ const canShow=!!snapshot&&snapshot.detection.boxes.length===10;
  const circles: Array<{x:number;y:number;r:number;key:string}>=[];
  if(canShow){
   snapshot!.detection.boxes.forEach((box,q)=>{
-   const cols=snapshot!.detection.results[q]?.columns||[];
-   cols.forEach((col,index)=>{
+   const columns=snapshot!.detection.results[q]?.columns||[];
+   columns.forEach((col,index)=>{
     if(col.digit===null)return;
-    circles.push({x:box.x+box.w*(index===0?.329:.673),y:box.y+box.h*(.149+.0855*col.digit),r:Math.max(5,box.w*.09),key:q+'-'+index});
+    const x=col.x??box.x+box.w*[.224,.382,.539,.696][index];
+    const y=col.y??box.y+box.h*.5;
+    circles.push({x,y,r:Math.max(4,box.h*.24),key:q+'-'+index});
    });
   });
  }
