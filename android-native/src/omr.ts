@@ -3,7 +3,7 @@
 // Os cantos e as posições das marcas estão em coordenadas do quadro reduzido.
 export type Point={x:number;y:number};
 export type CardBox={x:number;y:number;w:number;h:number;quad:Point[]};
-export type OMRDigit={digit:number|null;candidate:number;confidence:number};
+export type OMRDigit={digit:number|null;candidate:number;confidence:number;x?:number;y?:number};
 export type OMRQuestion={columns:OMRDigit[];value:number|null;valid:boolean};
 export type Detection={error?:string;boxes:CardBox[];results:OMRQuestion[]};
 export type Confirmed={values:number[];boxes:CardBox[];corners:[Point,Point,Point,Point];width:number;height:number};
