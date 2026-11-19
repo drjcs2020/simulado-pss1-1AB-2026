@@ -10,7 +10,7 @@ import {scheduleOnRN} from 'react-native-worklets';
 import {useSharedValue} from 'react-native-reanimated';
 import {ANSWER_KEYS,APP_TITLE,ClassId,ExamType,ROSTERS,SCHOOL,Student,lookupStudent,parseStudentQR} from './src/data';
 import {grade,Mark,scoreQuestion,toggleBit} from './src/scoring';
-import {CardBox,Detection,decodeBinary,stableReading} from './src/omr';
+import {CardBox,Detection,decodeBinary,luminanceToBinary,stableReading} from './src/omr';
 import {loadEndpoint,pendingGrade,readSheet,resetGrade,saveGrade,setEndpoint} from './src/sheets';
 
 const BLUE='#1e3a8a',GREEN='#16a34a',BG='#f1f5f9',WHITE='#fff';
@@ -45,11 +45,11 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
  const onStableRN=useCallback((values:number[],boxes:CardBox[])=>onStable(values,boxes),[onStable]);
  const onFeedbackRN=useCallback((text:string)=>onFeedback(text),[onFeedback]);
  useEffect(()=>{
-  if(resizerError)onFeedback('Leitura indisponível: '+String(resizerError));
+  if(resizerError)onFeedback('Processamento CPU ativado; GPU indisponível.');
  },[resizerError,onFeedback]);
  if(!device)return <View style={styles.fullScreen}><Text style={styles.whiteText}>Câmera traseira não encontrada.</Text><Button label="Sair" onPress={onExit}/></View>;
  return <View style={styles.fullScreen} onLayout={e=>setPreviewSize({width:e.nativeEvent.layout.width,height:e.nativeEvent.layout.height})}>
-  <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface"
+  <SkiaCamera style={StyleSheet.absoluteFill} device={device} isActive={true} orientationSource="interface" pixelFormat="yuv"
    onError={e=>onFeedback('Erro de câmera: '+String(e.message||e))}
    onFrame={(frame,render)=>{
     'worklet';
@@ -73,28 +73,36 @@ function LiveCamera({onStable,onExit,onReview,manual,boxes,stable,feedback,onFee
     });
     // Analisar no máximo 2,8 vezes por segundo; a câmera permanece fluida.
     const now=Date.now();
-    if(now-lastRun.value<450){frame.dispose();return;}
+    if(now-lastRun.value<700){frame.dispose();return;}
     lastRun.value=now;
-    if(resizer==null){
-      if(now-lastFeedbackAt.value>1400){
-        lastFeedbackAt.value=now;
-        scheduleOnRN(onFeedbackRN,'Processador da câmera indisponível');
-      }
-      frame.dispose();return;
-    }
     const queued=asyncRunner.runAsync(()=>{
      'worklet';
      let resized:GPUFrame|null=null,src:Mat|null=null,gray:Mat|null=null,bin:Mat|null=null;
      try{
-      resized=resizer.resize(frame) as GPUFrame;
-      const pixels=new Uint8Array(resized.getPixelBuffer());
-      src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
-      gray=Mat.create(0,0,DataTypes.CV_8U);
-      bin=Mat.create(0,0,DataTypes.CV_8U);
-      OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
-      OpenCV.threshold(gray,bin,0,255,ThresholdTypes.THRESH_BINARY_INV | ThresholdTypes.THRESH_OTSU);
-      const binary=bin.toBuffer('uint8');
-      const output=decodeBinary(new Uint8Array(binary.buffer),binary.cols,binary.rows);
+      let mask:Uint8Array;
+      if(resizer!=null){
+        // GPU rápida, quando Vulkan funciona no aparelho.
+        resized=resizer.resize(frame) as GPUFrame;
+        const pixels=new Uint8Array(resized.getPixelBuffer());
+        src=Mat.createFromBuffer('uint8',PROCESS_HEIGHT,PROCESS_WIDTH,3,pixels);
+        gray=Mat.create(0,0,DataTypes.CV_8U);
+        bin=Mat.create(0,0,DataTypes.CV_8U);
+        OpenCV.cvtColor(src,gray,ColorConversionCodes.COLOR_BGR2GRAY);
+        OpenCV.threshold(gray,bin,0,255,ThresholdTypes.THRESH_BINARY_INV | ThresholdTypes.THRESH_OTSU);
+        const binary=bin.toBuffer('uint8');
+        mask=new Uint8Array(binary.buffer);
+      }else{
+        // Fallback obrigatório: usa o plano de luminância YUV da câmera.
+        // Não depende de Vulkan nem de OpenCV para reconhecer o cartão.
+        const planes=frame.getPlanes();
+        const plane=planes[0];
+        if(!plane)throw Error('Câmera sem plano YUV legível');
+        mask=luminanceToBinary(
+          new Uint8Array(plane.getPixelBuffer()),
+          plane.width,plane.height,plane.bytesPerRow,PROCESS_WIDTH,PROCESS_HEIGHT
+        );
+      }
+      const output=decodeBinary(mask,PROCESS_WIDTH,PROCESS_HEIGHT);
       const found=output.error?null:output;
       recent.value=found;
       const valid=found?.results.filter(r=>r.valid).length??0;
