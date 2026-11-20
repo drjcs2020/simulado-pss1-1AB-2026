@@ -40,8 +40,10 @@ const server=http.createServer((req,res)=>{
      for(let j=0;j<25;j++)for(let i=0;i<25;i++)
       if(Math.min(i,j,24-i,24-j)<=2||(i>=9&&i<=15&&j>=9&&j<=15))ink(x+i,y+j);
     };
+    window.__pssBlankFrame=false;
     function draw(){
      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+     if(window.__pssBlankFrame)return;
      ctx.fillStyle='#000';
      for(const [x,y] of [[5,8],[610,8],[5,405],[610,405]])square(x,y);
      const point=(u,v)=>({x:17+605*u,y:20+397*v});
@@ -61,7 +63,7 @@ const server=http.createServer((req,res)=>{
    Object.defineProperty(navigator.mediaDevices,'getUserMedia',{value:async()=>create(),configurable:true});
   });
   await page.goto('http://127.0.0.1:'+port+'/scanner.html?turma=1A&num=1&tipo=A',{waitUntil:'load'});
-  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 lidas'),null,{timeout:22000});
+  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 respostas'),null,{timeout:22000});
   const before=await page.locator('#progress').innerText();
   assert.match(before,/Q06.*18.*inválida/);
   const pixelCount=await page.evaluate(()=>{
@@ -71,9 +73,35 @@ const server=http.createServer((req,res)=>{
    return n;
   });
   assert.ok(pixelCount>100,'green optical highlights missing: '+pixelCount);
-  console.log('PASS câmera de vídeo: 9/10, Q06=18 rejeitada, '+pixelCount+' pixels verdes');
+  const yellowPixelCount=await page.evaluate(()=>{
+   const c=document.querySelector('#overlay'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+   let n=0;
+   for(let i=0;i<d.length;i+=4)if(d[i]>180&&d[i+1]>110&&d[i+2]<140&&d[i+3]>150)n++;
+   return n;
+  });
+  assert.ok(yellowPixelCount>150,'missing yellow corner alignment guides: '+yellowPixelCount);
+  const dimensions=await page.evaluate(()=>{
+   const guide=guideRect();
+   return {width:guide.width,height:guide.height,ratio:guide.width/guide.height};
+  });
+  assert.ok(dimensions.width>200&&Math.abs(dimensions.ratio-1.52)<.01,
+    'Guide must match physical card aspect ratio');
+  console.log('PASS câmera de vídeo: 9/10, Q06=18 rejeitada, '+pixelCount+' pixels verdes e '+yellowPixelCount+' de guia amarelo');
   fs.mkdirSync('test-output',{recursive:true});
   await page.screenshot({path:'test-output/live.png'});
+  // Mesmo sem cartão visível, as quatro referências devem permanecer na câmera.
+  await page.evaluate(()=>{window.__pssBlankFrame=true});
+  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('0/4 cantos'),null,{timeout:15000});
+  const yellowOnBlank=await page.evaluate(()=>{
+   const c=document.querySelector('#overlay'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+   let n=0;for(let i=0;i<d.length;i+=4)if(d[i]>180&&d[i+1]>110&&d[i+2]<140&&d[i+3]>150)n++;
+   return n;
+  });
+  assert.ok(yellowOnBlank>150,'Yellow guide disappeared without a card');
+  console.log('PASS 0/4 cantos: guia continua visível sem cartão');
+  // O retorno da marcação não deve ficar vazio quando o cartão reaparece.
+  await page.evaluate(()=>{window.__pssBlankFrame=false});
+  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 respostas'),null,{timeout:15000});
   await page.locator('#reviewLive').click();
   assert.equal(await page.locator('#reviewPanel').isVisible(),true,'Conferir não abriu tela correta');
   assert.equal(await page.locator('#camera').isVisible(),false,'câmera não fechou na conferência');
