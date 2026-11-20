@@ -103,14 +103,14 @@ const server=http.createServer((req,res)=>{
   await page.screenshot({path:'test-output/live.png'});
   // Mesmo sem cartão visível, as quatro referências devem permanecer na câmera.
   await page.evaluate(()=>{window.__pssBlankFrame=true});
-  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('0/4 cantos'),null,{timeout:15000});
+  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('Aponte para o cartão completo'),null,{timeout:15000});
   const yellowOnBlank=await page.evaluate(()=>{
    const c=document.querySelector('#overlay'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
    let n=0;for(let i=0;i<d.length;i+=4)if(d[i]>180&&d[i+1]>110&&d[i+2]<140&&d[i+3]>150)n++;
    return n;
   });
   assert.ok(yellowOnBlank>150,'Yellow guide disappeared without a card');
-  console.log('PASS 0/4 cantos: guia continua visível sem cartão');
+  console.log('PASS guia amarelo permanece no vídeo sem cartão, sem exigir alinhamento milimétrico');
   // O retorno da marcação não deve ficar vazio quando o cartão reaparece.
   await page.evaluate(()=>{window.__pssBlankFrame=false});
   await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 respostas'),null,{timeout:15000});
