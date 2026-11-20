@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('omr-live-decimal-worker.js','utf8');
 const self={last:null,postMessage(r){this.last=r}};
-vm.runInNewContext(source,{self,Uint8Array,Uint32Array,Int32Array,Float64Array,Map,Math});
+vm.runInNewContext(source+'\nself.debugBinary=binaryFromRGBA;self.debugTemplate=findNestedFinderCandidates;',{self,Uint8Array,Uint32Array,Int32Array,Float64Array,Map,Math});
 const W=640,H=480,answers=[5,13,8,0,15,18,4,9,2,5];
 const corners={tl:{x:43,y:34},tr:{x:592,y:42},bl:{x:38,y:357},br:{x:571,y:443}};
 function project(u,v){
@@ -79,6 +79,14 @@ function check(label,contrast,qr){
  assert.equal(self.last.status,'ok',label+': '+self.last.message);
  const result=self.last.result;
  const got=result.results.map(r=>r.rawValue);
+ if(JSON.stringify(got)!==JSON.stringify(answers)){
+  const mask=self.debugBinary({width:W,height:H,pixels:frame.pixels});
+  const samples=self.debugTemplate(mask.gray,W,H);
+  console.log('TEMPLATE_COUNT',samples.length,'EXPECTED_MARKERS',Object.entries(corners).map(([k,p])=>({
+   key:k,near:samples.filter(c=>Math.hypot(c.x-p.x,c.y-p.y)<15).sort((a,b)=>b.correlation-a.correlation).slice(0,3)
+  })));
+  console.log('DECODE_DEBUG',result.error,result.orientationConfidence,JSON.stringify(result.corners));
+ }
  assert.equal(result.markersFound,4,label+' must identify four REAL corners');
  assert.ok(result.orientationConfidence>.54,label+' must align page grid, not QR');
  assert.equal(JSON.stringify(got),JSON.stringify(answers),
