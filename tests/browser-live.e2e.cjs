@@ -63,7 +63,19 @@ const server=http.createServer((req,res)=>{
    Object.defineProperty(navigator.mediaDevices,'getUserMedia',{value:async()=>create(),configurable:true});
   });
   await page.goto('http://127.0.0.1:'+port+'/scanner.html?turma=1A&num=1&tipo=A',{waitUntil:'load'});
-  await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 respostas'),null,{timeout:22000});
+  try{
+    await page.waitForFunction(()=>document.querySelector('#progress')?.textContent?.includes('9/10 respostas'),null,{timeout:22000});
+  }catch(error){
+    const state=await page.evaluate(()=>({
+      progress:document.querySelector('#progress')?.textContent,
+      stream:!!window.state?.stream,
+      dims:[document.querySelector('#video')?.videoWidth,document.querySelector('#video')?.videoHeight],
+      overlay:document.querySelector('#overlay')?.width,
+      worker:typeof Worker,
+    }));
+    console.error('CAMERA DIAGNOSTIC',JSON.stringify(state),'BROWSER ERRORS',pageErrors);
+    throw error;
+  }
   const before=await page.locator('#progress').innerText();
   assert.match(before,/Q06.*18.*inválida/);
   const pixelCount=await page.evaluate(()=>{
