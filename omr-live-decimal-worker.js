@@ -310,18 +310,37 @@ function locate(mask,w,h,anchors){
   }
   return {score:score+good*.35,good,rows};
  }
+ // The header, top-of-grid and bottom-of-grid lines distinguish the
+ // true reading orientation from an upside-down grid that looks like 00s.
+ function gridScore(rotation){
+  let found=0,total=0;
+  for(const y of [.428,.477,.939]){
+   for(let i=0;i<=70;i++){
+    const p=point(.012+.974*i/70,y,rotation);
+    const x=Math.round(p.x),cy=Math.round(p.y);
+    if(x<2||x>=w-2||cy<2||cy>=h-2)continue;
+    total++;
+    if(mask[cy*w+x]||mask[(cy-1)*w+x]||mask[(cy+1)*w+x]||
+       mask[cy*w+x-1]||mask[cy*w+x+1])found++;
+   }
+  }
+  return total?found/total:0;
+ }
  let best=null;
- for(const rotation of [0,90,180,270])
+ for(const rotation of [0,90,180,270]){
+  const grid=gridScore(rotation);
   for(const du of [0,-.0035,.0035])
    for(const dv of [0,-.0035,.0035]){
     const m=measure(du,dv,rotation);
-    m.rotation=rotation;m.du=du;m.dv=dv;
+    m.rotation=rotation;m.du=du;m.dv=dv;m.gridScore=grid;
+    m.score+=grid*28;
     m.score-=(Math.abs(du)+Math.abs(dv))*55;
     if(!best||m.score>best.score)best=m;
    }
+ }
  if(best.good<5)return {error:'Cantos encontrados; aproxime para ler os quadradinhos',
   corners:anchors,orientationConfidence:best.good/20,boxes:[],results:[],
-  diagnostics:{digits:best.good,stage:'squares',score:best.score}};
+  diagnostics:{digits:best.good,stage:'squares',score:best.score,grid:best.gridScore}};
  const orientation=best.rotation,measured=measure(best.du,best.dv,orientation,true);
  const orientationConfidence=best.good/20;
  const boxes=[],results=[];
@@ -340,7 +359,7 @@ function locate(mask,w,h,anchors){
   boxes.push({quad,x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)});
  }
  return {boxes,results,corners:anchors,orientation,orientationConfidence,
-  diagnostics:{digits:best.good,stage:'answers',score:best.score}};
+  diagnostics:{digits:best.good,stage:'answers',score:best.score,grid:best.gridScore}};
 }
 function decode(input){
  const w=input.width,h=input.height;
