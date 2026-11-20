@@ -19,12 +19,15 @@ button:disabled{opacity:.4}button.secondary{background:#e8effa;color:#153d77;bor
 #reviewMessage{padding:10px;border-radius:9px;background:#fff9e9;border:1px solid #f1d9ab;margin:8px 0 12px;font-size:13px}
 #answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .question{background:#fff;border:1px solid #d1dbea;border-radius:12px;padding:10px}
-.question .head{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-bottom:9px}
-.question .sum{font-size:19px;color:#1e3a8a}
+.question .head{display:flex;align-items:center;font-weight:800;margin-bottom:9px}
+.result-row{display:flex;align-items:center;gap:8px;background:#e8effa;border-radius:10px;padding:8px;margin-top:8px;min-height:56px}
+.result-total{display:flex;flex:1;flex-direction:column;min-width:0;gap:2px}
+.result-label{font-size:11px;line-height:1.1;color:#52677e;font-weight:800;text-transform:uppercase;letter-spacing:.35px}
+.question .sum{font-size:22px;line-height:1.1;color:#1e3a8a;font-weight:850;font-variant-numeric:tabular-nums}
 .bits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .bit{padding:12px 2px;background:white;color:#1b3e65;border:2px solid #9cacc5;border-radius:9px;min-width:0}
 .bit.selected{color:#fff;background:#183d77;border-color:#183d77}
-.zero{background:#e8effa;color:#153d77;padding:8px 6px;width:100%;margin-top:8px}
+.zero{background:#fff;color:#153d77;border:1px solid #aab9d1;border-radius:8px;padding:9px 8px;min-width:54px;min-height:40px;font-size:13px}
 #actions{display:flex;gap:8px;margin-top:13px}
 #actions button{flex:1;min-height:50px}
 [hidden]{display:none!important}
@@ -265,8 +268,7 @@ function renderAnswers(){
   const wrap=document.createElement('section');wrap.className='question';
   const head=document.createElement('div');head.className='head';
   const name=document.createElement('span');name.textContent='Q'+String(q+1).padStart(2,'0');
-  const value=document.createElement('span');value.className='sum';value.textContent=scoreText(state.marks[q]);
-  head.append(name,value);wrap.append(head);
+  head.append(name);wrap.append(head);
   const choices=document.createElement('div');choices.className='bits';
   for(const bit of [1,2,4,8]){
    const control=document.createElement('button');control.type='button';control.className='bit'+(state.marks[q]!==null&&(state.marks[q]&bit)?' selected':'');
@@ -275,8 +277,16 @@ function renderAnswers(){
    choices.append(control);
   }
   wrap.append(choices);
+  const footer=document.createElement('div');footer.className='result-row';
+  const resultTotal=document.createElement('div');resultTotal.className='result-total';
+  const resultLabel=document.createElement('span');resultLabel.className='result-label';resultLabel.textContent='Somatório';
+  const value=document.createElement('span');value.className='sum';value.textContent=scoreText(state.marks[q]);
+  value.setAttribute('aria-live','polite');
+  resultTotal.append(resultLabel,value);
   const zero=document.createElement('button');zero.type='button';zero.className='zero';
-  zero.textContent='00 · zerar';zero.onclick=()=>{state.marks[q]=0;state.edited.add(q);renderAnswers()};wrap.append(zero);
+  zero.textContent='Zerar';zero.setAttribute('aria-label','Zerar resposta da questão '+String(q+1).padStart(2,'0'));
+  zero.onclick=()=>{state.marks[q]=0;state.edited.add(q);renderAnswers()};
+  footer.append(resultTotal,zero);wrap.append(footer);
   parent.append(wrap);
  }
  const remaining=state.marks.filter(x=>x===null).length;
