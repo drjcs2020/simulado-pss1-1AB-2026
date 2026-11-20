@@ -29,51 +29,99 @@ function binaryFromRGBA(input){
  return gray;
 }
 function detectCorners(mask,w,h){
- const result={};
- for(const roi of MARKER_ROIS){
-  const x0=Math.floor(roi.x0*w),x1=Math.floor(roi.x1*w);
-  const y0=Math.floor(roi.y0*h),y1=Math.floor(roi.y1*h);
-  const rw=x1-x0,rh=y1-y0;
-  const visited=new Uint8Array(rw*rh),queue=new Int32Array(rw*rh);
-  const minSize=Math.max(9,Math.floor(Math.min(w,h)*.017));
-  const maxSize=Math.max(32,Math.floor(Math.min(w,h)*.18));
-  let selected=null;
-  for(let yy=0;yy<rh;yy++)for(let xx=0;xx<rw;xx++){
-   const index=yy*rw+xx;
-   if(visited[index]||!mask[(yy+y0)*w+xx+x0])continue;
-   let head=0,tail=1,count=0,minX=xx,maxX=xx,minY=yy,maxY=yy;
-   queue[0]=index;visited[index]=1;
-   while(head<tail){
-    const idx=queue[head++],cx=idx%rw,cy=(idx/rw)|0;
-    count++;
-    if(cx<minX)minX=cx;if(cx>maxX)maxX=cx;
-    if(cy<minY)minY=cy;if(cy>maxY)maxY=cy;
-    const ns=[cx>0?idx-1:-1,cx<rw-1?idx+1:-1,cy>0?idx-rw:-1,cy<rh-1?idx+rw:-1];
-    for(let k=0;k<4;k++){
-     const next=ns[k];
-     if(next<0||visited[next])continue;
-     visited[next]=1;
-     const ny=(next/rw)|0,nx=next-ny*rw;
-     if(mask[(ny+y0)*w+nx+x0])queue[tail++]=next;
-    }
+ // Procura padrões quadrados por TODA a imagem, não apenas nas bordas do vídeo.
+ // Assim funciona quando a folha ainda está pequena e centralizada.
+ const visited=new Uint8Array(w*h),queue=new Int32Array(w*h);
+ const minSize=Math.max(6,Math.floor(Math.min(w,h)*.012));
+ const maxSize=Math.floor(Math.min(w,h)*.18);
+ const candidates=[];
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const pos=y*w+x;
+  if(visited[pos]||!mask[pos])continue;
+  let head=0,tail=1,count=0,minX=x,maxX=x,minY=y,maxY=y;
+  visited[pos]=1;queue[0]=pos;
+  while(head<tail){
+   const index=queue[head++],px=index%w,py=(index/w)|0;
+   count++;minX=Math.min(minX,px);maxX=Math.max(maxX,px);
+   minY=Math.min(minY,py);maxY=Math.max(maxY,py);
+   const neighbors=[px>0?index-1:-1,px<w-1?index+1:-1,
+                    py>0?index-w:-1,py<h-1?index+w:-1];
+   for(let k=0;k<4;k++){
+    const n=neighbors[k];
+    if(n<0||visited[n]||!mask[n])continue;
+    visited[n]=1;queue[tail++]=n;
    }
-   const bw=maxX-minX+1,bh=maxY-minY+1,fill=count/(bw*bh);
-   if(bw<minSize||bh<minSize||bw>maxSize||bh>maxSize)continue;
-   if(bw/bh<.70||bw/bh>1.40||fill<.28||fill>.87)continue;
-   const centerX=x0+(minX+maxX)/2,centerY=y0+(minY+maxY)/2;
-   const dx=roi.name.endsWith('l')?centerX/w:1-centerX/w;
-   const dy=roi.name[0]==='t'?centerY/h:1-centerY/h;
-   const score=(dx*dx+dy*dy)*6+Math.abs(fill-.59)*.16+Math.abs(bw/bh-1)*.20;
-   if(!selected||score<selected.score)selected={x:centerX,y:centerY,score,size:(bw+bh)/2};
   }
-  result[roi.name]=selected;
+  const bw=maxX-minX+1,bh=maxY-minY+1,aspect=bw/bh;
+  if(bw<minSize||bh<minSize||bw>maxSize||bh>maxSize||aspect<.73||aspect>1.33)continue;
+  const fill=count/(bw*bh);
+  if(fill<.23||fill>.88)continue;
+  // Moldura dos marcadores: bordas escuras, centro com espaço branco.
+  let perimeter=0,perimeterTotal=0,center=0,centerTotal=0;
+  const inset=Math.min(2,Math.max(0,Math.floor(Math.min(bw,bh)*.075)));
+  for(let k=0;k<=12;k++){
+   const xx=minX+Math.round((bw-1)*k/12),yy=minY+Math.round((bh-1)*k/12);
+   perimeter+=mask[(minY+inset)*w+xx]+mask[(maxY-inset)*w+xx];
+   perimeter+=mask[yy*w+minX+inset]+mask[yy*w+maxX-inset];
+   perimeterTotal+=4;
+  }
+  for(let dy=.30;dy<=.70;dy+=.20)for(let dx=.30;dx<=.70;dx+=.20){
+   center+=mask[(minY+Math.round((bh-1)*dy))*w+minX+Math.round((bw-1)*dx)];
+   centerTotal++;
+  }
+  const edgeRate=perimeter/perimeterTotal,centerRate=center/centerTotal;
+  if(edgeRate<.62||centerRate>.80)continue;
+  const size=(bw+bh)/2,cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+  const quality=edgeRate+(1-centerRate)*.3-Math.abs(aspect-1)*.4;
+  candidates.push({x:cx,y:cy,size,quality});
  }
- if(!result.tl||!result.tr||!result.bl||!result.br)return null;
- const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
- const horizontal=(distance(result.tl,result.tr)+distance(result.bl,result.br))/2;
- const vertical=(distance(result.tl,result.bl)+distance(result.tr,result.br))/2;
- if(horizontal<w*.30||vertical<h*.25)return null;
- return {tl:result.tl,tr:result.tr,bl:result.bl,br:result.br,horizontal,vertical};
+ // Marcadores reais têm dimensões semelhantes e formam um retângulo amplo.
+ candidates.sort((a,b)=>b.size-a.size||b.quality-a.quality);
+ const possible=candidates.slice(0,70);
+ let best=null,bestScore=-Infinity;
+ function nearest(x,y,size,excludeA,excludeB){
+  let winner=null,smallest=Infinity;
+  for(let i=0;i<possible.length;i++){
+   if(i===excludeA||i===excludeB)continue;
+   const p=possible[i];
+   if(p.size<size*.55||p.size>size*1.7)continue;
+   const distance=Math.hypot(p.x-x,p.y-y);
+   if(distance<smallest){winner={...p,id:i,distance};smallest=distance}
+  }
+  return winner;
+ }
+ for(let i=0;i<possible.length;i++)for(let j=0;j<possible.length;j++){
+  if(i===j)continue;
+  const tl=possible[i],br=possible[j];
+  const dx=br.x-tl.x,dy=br.y-tl.y;
+  if(dx<w*.27||dy<h*.25)continue;
+  const size=(tl.size+br.size)/2;
+  if(tl.size<size*.65||br.size<size*.65)continue;
+  const tr=nearest(br.x,tl.y,size,i,j);
+  const bl=nearest(tl.x,br.y,size,i,j);
+  if(!tr||!bl||tr.id===bl.id)continue;
+  const tolerance=Math.max(dx,dy)*.21;
+  if(tr.distance>tolerance||bl.distance>tolerance)continue;
+  const ratios=[tl.size,tr.size,bl.size,br.size];
+  if(Math.max(...ratios)/Math.min(...ratios)>1.7)continue;
+  const polygon=(dx*dy)/(w*h);
+  const geometry=(tr.distance+bl.distance)/(dx+dy);
+  const quality=(tl.quality+tr.quality+bl.quality+br.quality)/4;
+  const score=polygon*8+quality-geometry*2;
+  if(score>bestScore){bestScore=score;best={tl,tr,bl,br,horizontal:dx,vertical:dy}}
+ }
+ if(best)return {corners:best,count:4,points:best};
+ // Mostrar pontos parciais sem anunciar um reconhecimento completo.
+ // Escolhe somente marcadores plausíveis, semelhantes em tamanho e separados.
+ const partial=[];
+ const largest=possible[0]?.size||0;
+ const keep=possible.filter(p=>p.size>=Math.max(minSize,largest*.68)&&p.quality>.72);
+ for(const p of keep){
+  if(partial.length===4)break;
+  if(partial.every(x=>Math.hypot(x.x-p.x,x.y-p.y)>Math.max(x.size,p.size)*2.4))
+   partial.push({x:p.x,y:p.y,size:p.size});
+ }
+ return {corners:null,count:Math.min(3,partial.length),points:partial};
 }
 function sample(mask,w,h,x,y,rx,ry){
  const xa=Math.max(0,Math.floor(x-rx)),xb=Math.min(w-1,Math.ceil(x+rx));
@@ -155,10 +203,11 @@ function locate(mask,w,h,anchors){
 function decode(input){
  const w=input.width,h=input.height;
  const binary=binaryFromRGBA(input);
- const corners=detectCorners(binary,w,h);
- if(!corners)return {error:'Enquadre os quatro marcadores dos cantos',boxes:[],results:[],markersFound:0};
+ const detection=detectCorners(binary,w,h);
+ if(!detection.corners)return {error:'Ajuste os quatro marcadores dentro do guia',boxes:[],results:[],markersFound:detection.count,markerPoints:detection.points};
+ const corners=detection.corners;
  const res=locate(binary,w,h,corners);
- return {...res,markersFound:4};
+ return {...res,markersFound:4,markerPoints:corners};
 }
 self.onmessage=function(event){
  const data=event.data||{};
