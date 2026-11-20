@@ -290,7 +290,10 @@ async function reconcile({notify=true}={}){
   }
   persist();refreshStatus();
   // Só atualizar o rascunho se não houver alterações feitas pelo professor.
-  const {t,n}=current();if(!dirty&&db[t]?.[n])marks=db[t][n].marks.slice();
+  const {t,n}=current();
+  // Se a nota foi apagada no Sheets, limpar também as marcações antigas na tela.
+  // Nunca apagar um rascunho que o professor esteja editando.
+  if(!dirty)marks=db[t]?.[n]?.marks?.slice()||ZERO();
   renderQuestions();renderGrades();renderStats();
   studentStatusOnly();
   if(notify)$('sheetsMessage').textContent='Planilha atualizada. '+verified+' lançamento(s) confirmado(s).'+(conflicts?' '+conflicts+' divergência(s) preservada(s).':'');
