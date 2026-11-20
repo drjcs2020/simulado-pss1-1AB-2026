@@ -1,0 +1,27 @@
+{
+  "id": "/simulado-pss1-1AB-2026/",
+  "name": "Corretor PSS 1 — Matemática 2026",
+  "short_name": "Corretor PSS1",
+  "description": "Correção de cartões PSS 1 com leitura ao vivo, somatórias e notas no Google Sheets.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0b2a60",
+  "icons": [
+    {
+      "src": "./icons/corretor-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/corretor-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
