@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Corretor PSS 1 / UEPG — Matemática 2026</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/corretor-pss1.svg">
+<link rel="apple-touch-icon" href="./icons/corretor-192.png">
+<meta name="theme-color" content="#0b2a60">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Corretor PSS1">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
     :root {
       --primary: #1e3a8a;
@@ -53,6 +60,10 @@
     .bar-part { background: var(--warn); }
     .bar-err { background: var(--err); }
     .hidden { display: none !important; }
+    .pending-bar{border:1px solid #f0ce85;background:#fff8e8;color:#6b4615;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+    .pending-bar[hidden]{display:none!important}
+    .pending-bar span{flex:1 1 180px;font-size:13px;font-weight:600}
+    .pending-bar button{flex:0 0 auto;min-height:42px}
     .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
   </style>
 <style>
@@ -107,6 +118,10 @@ select,input[type=url]{max-width:100%;width:100%;box-sizing:border-box}
 <label for="student" style="flex:3 1 200px">Aluno<select id="student"></select></label>
 </div>
 <div id="studentMeta"></div><div id="message" role="status"></div>
+<div id="pendingAlert" class="pending-bar" role="status" aria-live="polite" hidden>
+  <span id="pendingInfo">Nota guardada neste celular, aguardando o Google Sheets.</span>
+  <button id="retryPending" class="btn btn-primary" type="button">Reenviar pendentes</button>
+</div>
 </div>
 <div class="card">
 <div class="row" style="justify-content:space-between">
@@ -235,7 +250,17 @@ function renderQuestions(){
 }
 function clearDraft(){marks=ZERO();dirty=true;saveDraft();renderQuestions();toast('Marcações zeradas e mantidas assim após atualizar. Para excluir uma nota salva, use Resetar nota do aluno.')}
 function refreshStatus(){
- const count=queue.length;$('connection').textContent=count?'Envio pendente: '+count+' nota(s)':remoteVersion?'Planilha acessível':'Planilha não verificada';
+ const count=queue.length;
+ const noNetwork=navigator.onLine===false;
+ $('connection').textContent=count?'Envio pendente: '+count+' nota(s)':remoteVersion?'Planilha acessível':'Planilha não verificada';
+ const bar=$('pendingAlert'),message=$('pendingInfo'),button=$('retryPending');
+ if(!bar||!message||!button)return;
+ bar.hidden=count===0;
+ message.textContent=count===0?'':sending?'Enviando '+count+' lançamento(s) ao Google Sheets…':
+ noNetwork?count+' lançamento(s) guardado(s) neste celular. Sem internet; reenvie quando voltar.':
+ count+' lançamento(s) guardado(s) neste celular, aguardando confirmação do Google Sheets.';
+ button.disabled=sending||noNetwork;
+ button.textContent=sending?'Enviando…':'Reenviar '+count+' pendente(s)';
 }
 function parseScores(row){
  const scores=Array.from({length:10},(_,i)=>Number(String(row['Q'+String(i+1).padStart(2,'0')]??'').replace(',','.')));
@@ -279,41 +304,77 @@ function studentStatusOnly(){
 }
 async function sync(){
  if(sending)return;
- if(!gasUrl){$('sheetsMessage').textContent='Configure a URL do Apps Script.';return}
- sending=true;
+ if(!queue.length){refreshStatus();$('sheetsMessage').textContent='Não há notas pendentes de envio.';return}
+ if(!gasUrl){$('sheetsMessage').textContent='Configure a URL do Apps Script. As notas continuam guardadas neste celular.';refreshStatus();return}
+ if(navigator.onLine===false){
+  $('sheetsMessage').textContent='Sem internet. Notas preservadas neste celular para reenvio.';
+  refreshStatus();return;
+ }
+ sending=true;refreshStatus();
+ let confirmed=0,conflicts=0,otherError=null;
  try{
+  // Consulta ANTES de postar: se o Sheets já recebeu uma tentativa anterior,
+  // não repete o lançamento no histórico após falha no retorno da rede.
   let remote=await getSheet();
   for(const record of queue.slice()){
-   const row=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===record.num);
+   if(!queue.some(x=>x.turma===record.turma&&Number(x.num)===Number(record.num)))continue;
+   const row=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===Number(record.num));
    if(row&&row.Status==='Corrigida'){
     const vals=parseScores(row);
     if(vals&&vals.every((x,i)=>Math.abs(x-record.scores[i])<.011)){
-     queue=queue.filter(q=>!(q.turma===record.turma&&q.num===record.num));if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;continue;
+     queue=queue.filter(q=>!(q.turma===record.turma&&Number(q.num)===Number(record.num)));
+     if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;
+     confirmed++;persist();continue;
     }
-    // Substituição explicitamente permitida no clique Salvar do aluno.
-    if(!record.replace){$('sheetsMessage').textContent='Nota diferente já existe no Sheets para '+record.turma+' nº '+record.num+'.';continue}
+    if(!record.replace){
+     conflicts++;
+     otherError='Nota diferente já existe no Sheets para '+record.turma+' nº '+record.num+'. Não substituí.';
+     continue;
+    }
    }
-   const reply=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[record]}),redirect:'follow'});
+   const reply=await fetch(gasUrl,{method:'POST',body:JSON.stringify({records:[record]}),redirect:'follow',cache:'no-store'});
    if(!reply.ok)throw Error('HTTP '+reply.status);
-   const result=await reply.json();if(result.status==='error'||result.status==='partial'||result.status!=='ok'||result.updated===0)throw Error(result.message||'Gravação não confirmada pelo Apps Script.');
+   const result=await reply.json();
+   const acknowledged=Array.isArray(result.acknowledged)&&result.acknowledged.some(
+     x=>x.turma===record.turma&&Number(x.num)===Number(record.num));
+   if(result.status!=='ok'||!acknowledged)throw Error(result.message||'O Apps Script não confirmou o aluno.');
    remote=await getSheet();
-   const saved=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===record.num),scores=saved&&parseScores(saved);
-   if(saved?.Status!=='Corrigida'||!scores||scores.some((x,i)=>Math.abs(x-record.scores[i])>.011))throw Error('A planilha não confirmou as mesmas notas por questão.');
-   queue=queue.filter(q=>!(q.turma===record.turma&&q.num===record.num));if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;
+   const saved=(remote.turmas[record.turma]||[]).find(r=>Number(r['Nº'])===Number(record.num));
+   const scores=saved&&parseScores(saved);
+   if(saved?.Status!=='Corrigida'||!scores||scores.some((x,i)=>Math.abs(x-record.scores[i])>.011))
+    throw Error('A planilha não confirmou os mesmos pontos em todas as questões.');
+   queue=queue.filter(q=>!(q.turma===record.turma&&Number(q.num)===Number(record.num)));
+   if(db[record.turma]?.[record.num])db[record.turma][record.num].confirmed=true;
+   confirmed++;
+   persist(); // Cada confirmação é gravada antes de enviar o próximo aluno.
   }
-  persist();studentStatusOnly();renderGrades();refreshStatus();$('sheetsMessage').textContent='Sincronização concluída.';
- }catch(e){$('sheetsMessage').textContent='Sem confirmação da planilha: '+String(e.message||e)+'. Nota mantida no celular.'}
- finally{sending=false;refreshStatus()}
+  if(queue.length){
+   $('sheetsMessage').textContent=(confirmed?confirmed+' confirmado(s). ':'')+queue.length+' lançamento(s) ainda pendente(s). '+(otherError||'Use Reenviar pendentes.');
+  }else{
+   $('sheetsMessage').textContent='Todas as notas confirmadas no Google Sheets.';
+  }
+ }catch(e){
+  $('sheetsMessage').textContent='Sem confirmação do Google Sheets: '+String(e.message||e)+'. As notas continuam neste celular.';
+ }finally{
+  persist();sending=false;studentStatusOnly();renderGrades();renderStats();refreshStatus();
+ }
 }
 async function save(){
+ if(sending||resetting){toast('Já existe uma operação em andamento.');return}
  const {t,n,st}=current();if(!st)return;
+ if(marks.length!==10||marks.some(v=>!Number.isInteger(v)||v<0||v>15)){
+  toast('Revise as dez somatórias antes de salvar.');return;
+ }
  const calc=calculated(t,st,marks),prior=db[t]?.[n];
  const replacing=Boolean(prior||queue.some(x=>x.turma===t&&x.num===n));
  if(replacing&&!confirm('Substituir a nota existente de '+st.name+' por '+fmt(calc.total)+'?'))return;
  const rec={turma:t,num:n,name:st.name,type:st.type,marks:getMarks(),scores:calc.scores,total:calc.total,updatedAt:new Date().toISOString(),replace:replacing};
  db[t][n]={...rec,confirmed:false};queue=queue.filter(x=>!(x.turma===t&&x.num===n));queue.push(rec);
  persist();discardDraft(t,n);dirty=false;studentStatusOnly();refreshStatus();toast('Salvo no celular. Conferindo gravação no Sheets…');
- await sync();if(!queue.some(x=>x.turma===t&&x.num===n))toast('Nota '+fmt(calc.total)+' confirmada no Google Sheets.');
+ await sync();
+ if(queue.some(x=>x.turma===t&&Number(x.num)===n))
+  toast('Nota guardada neste celular, ainda sem confirmação do Google Sheets.');
+ else toast('Nota '+fmt(calc.total)+' confirmada no Google Sheets.');
 }
 async function resetStudent(){
  if(resetting||sending)return;
@@ -426,9 +487,22 @@ function hook(){
  $('save').onclick=save;$('clear').onclick=clearDraft;$('reset').onclick=resetStudent;$('gradeGroup').onchange=renderGrades;$('refresh').onclick=()=>reconcile();
  $('gas').value=gasUrl;$('saveUrl').onclick=()=>{const val=$('gas').value.trim();if(val&&!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(val)){$('sheetsMessage').textContent='URL inválida';return}gasUrl=val;localStorage.setItem(GAS_KEY,val);$('sheetsMessage').textContent='URL salva. Verifique a conexão.'};
  $('checkUrl').onclick=()=>reconcile();$('sync').onclick=sync;
+ $('retryPending').onclick=()=>sync();
 }
 hook();groupChange();importOmr();renderGrades();renderStats();refreshStatus();
 if(gasUrl)reconcile({notify:false}).then(()=>{if(queue.length)sync()}).catch(()=>{});
-window.addEventListener('pagehide',closeQr);
+// Conexão momentânea: reenvia apenas registros ainda pendentes, consultando
+// primeiro a planilha para evitar repetir lançamentos confirmados.
+let reconnectTimer=null;
+function tryPendingAfterReconnect(){
+ refreshStatus();
+ if(!queue.length||!gasUrl||sending||navigator.onLine===false)return;
+ if(reconnectTimer)clearTimeout(reconnectTimer);
+ reconnectTimer=setTimeout(()=>{reconnectTimer=null;sync()},1100);
+}
+window.addEventListener('online',tryPendingAfterReconnect);
+window.addEventListener('offline',refreshStatus);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tryPendingAfterReconnect()});
+window.addEventListener('pagehide',()=>{closeQr();if(reconnectTimer)clearTimeout(reconnectTimer)});
 </script>
 </body></html>
