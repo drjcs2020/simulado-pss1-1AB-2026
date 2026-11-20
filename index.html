@@ -388,7 +388,7 @@ function openCard(fromQr=false){
  const {t,n,st}=current();if(!st)return;
  closeQr();
  // Após o QR, abrir o leitor automaticamente; o navegador pode solicitar novo consentimento.
- location.href='scanner.html?turma='+encodeURIComponent(t)+'&num='+n+'&tipo='+st.type+'&v=20261120-instant1';
+ location.href='scanner.html?turma='+encodeURIComponent(t)+'&num='+n+'&tipo='+st.type+'&v=20261120-review3';
 }
 function renderGrades(){
  const t=$('gradeGroup').value,table=$('gradeTable');
