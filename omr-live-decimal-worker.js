@@ -204,6 +204,53 @@ function sample(mask,w,h,x,y,rx,ry){
  }
  return total?filled/total:0;
 }
+
+function sampleGray(gray,w,h,x,y,rx,ry){
+ const xa=Math.max(0,Math.floor(x-rx)),xb=Math.min(w-1,Math.ceil(x+rx));
+ const ya=Math.max(0,Math.floor(y-ry)),yb=Math.min(h-1,Math.ceil(y+ry));
+ let sum=0,count=0;
+ for(let j=ya;j<=yb;j++)for(let i=xa;i<=xb;i++){
+  if(((i-x)/rx)**2+((j-y)/ry)**2>.85)continue;
+  sum+=gray[j*w+i];count++;
+ }
+ return count?sum/count:255;
+}
+// Fast tracking by contrasting dark border, pale ring and dark center.
+function trackCorners(gray,w,h,last){
+ if(!last)return null;
+ const out={},radius=Math.max(9,Math.min(24,Math.round(Math.min(w,h)*.045)));
+ function pixel(x,y){x=Math.round(x);y=Math.round(y);return x>=0&&y>=0&&x<w&&y<h?gray[y*w+x]:255}
+ for(const id of ['tl','tr','bl','br']){
+  const old=last[id],size=old.size||Math.min(w,h)*.035;
+  const radiusOuter=size*.46,radiusRing=size*.30,radiusCore=size*.095;
+  let best=null;
+  for(let dy=-radius;dy<=radius;dy+=3)for(let dx=-radius;dx<=radius;dx+=3){
+   const x=old.x+dx,y=old.y+dy;
+   if(x-radiusOuter<1||x+radiusOuter>=w||y-radiusOuter<1||y+radiusOuter>=h)continue;
+   let dark=0,light=0,core=0;
+   for(let k=0;k<8;k++){
+    const angle=Math.PI*2*k/8,co=Math.cos(angle),si=Math.sin(angle);
+    dark+=pixel(x+co*radiusOuter,y+si*radiusOuter);
+    light+=pixel(x+co*radiusRing,y+si*radiusRing);
+    core+=pixel(x+co*radiusCore,y+si*radiusCore);
+   }
+   const contrast=light/8-(dark/8+core/8)/2;
+   if(contrast<20)continue;
+   const score=contrast-Math.hypot(dx,dy)*.16;
+   if(!best||score>best.score)best={x,y,size,quality:old.quality||1,score};
+  }
+  if(!best)return null;
+  out[id]=best;
+ }
+ const top=Math.hypot(out.tr.x-out.tl.x,out.tr.y-out.tl.y);
+ const bottom=Math.hypot(out.br.x-out.bl.x,out.br.y-out.bl.y);
+ const left=Math.hypot(out.bl.x-out.tl.x,out.bl.y-out.tl.y);
+ const right=Math.hypot(out.br.x-out.tr.x,out.br.y-out.tr.y);
+ if(top<w*.25||left<h*.18||Math.max(top,bottom)/Math.min(top,bottom)>1.4||
+    Math.max(left,right)/Math.min(left,right)>1.45)return null;
+ return {...out,horizontal:(top+bottom)/2,vertical:(left+right)/2};
+}
+
 function locate(mask,w,h,anchors){
  // Perspective homography: simple bilinear interpolation was shifted by up
  // to 15 pixels in the user's angled photo — more than a filled square width.
@@ -233,43 +280,53 @@ function locate(mask,w,h,anchors){
  const point=(u,v,rotation)=>{
   const [x,y]=orient(u,v,rotation);return cornerPoint(x,y);
  };
- const inkNear=(p)=>{
-  const x=Math.round(p.x),y=Math.round(p.y);
-  if(x<2||x>=w-2||y<2||y>=h-2)return 0;
-  return mask[y*w+x]||mask[(y-1)*w+x]||mask[(y+1)*w+x]||mask[y*w+x-1]||mask[y*w+x+1]?1:0;
- };
- let orientation=0,confidence=-1;
- for(const degrees of [0,90,180,270]){
-  let found=0,total=0;
-  for(const y of [.428,.477,.939]){
-   for(let i=0;i<=70;i++){
-    const u=.012+.974*i/70;
-    found+=inkNear(point(u,y,degrees));total++;
+
+ const gray=mask.gray;
+ const rx=Math.max(1.7,anchors.horizontal*.0058),ry=Math.max(1.7,anchors.vertical*.0089);
+ const cols=[.0377,.0720],step=.0993, valueRows=d=>.5035+d*.0446;
+ function measure(du,dv,rotation,collect=false){
+  let score=0,good=0;
+  const rows=[];
+  for(let q=0;q<10;q++){
+   const columns=[];
+   for(let c=0;c<2;c++){
+    const candidates=[];
+    for(let d=0;d<(c===0?2:10);d++){
+     const p=point(cols[c]+q*step+du,valueRows(d)+dv,rotation);
+     const luma=sampleGray(gray,w,h,p.x,p.y,rx,ry);
+     candidates.push({digit:d,luma,x:p.x,y:p.y});
+    }
+    const options=candidates.map(r=>({digit:r.digit,x:r.x,y:r.y,luma:r.luma}));
+    candidates.sort((a,b)=>a.luma-b.luma);
+    const first=candidates[0],second=candidates[1],gap=second.luma-first.luma;
+    const confident=gap>=18&&first.luma<second.luma*.91;
+    score+=Math.min(1.6,Math.max(0,gap)/75);
+    if(confident)good++;
+    if(collect)columns.push({digit:confident?first.digit:null,candidate:first.digit,
+      confidence:Math.min(1,gap/90),x:first.x,y:first.y,fill:Math.min(1,gap/120),
+      gap,options});
    }
+   if(collect)rows.push(columns);
   }
-  const ratio=found/total;
-  if(ratio>confidence){confidence=ratio;orientation=degrees}
+  return {score:score+good*.35,good,rows};
  }
- if(confidence<.54)return {error:'Enquadre a grade completa do cartão',corners:anchors,orientationConfidence:confidence,boxes:[],results:[]};
- const rx=Math.max(2,anchors.horizontal*.0055),ry=Math.max(2,anchors.vertical*.0080);
- const cols=[.0377,.0720],step=.0993;
- const valueRows=d=>.5035+d*.0446;
+ let best=null;
+ for(const rotation of [0,90,180,270])
+  for(const du of [0,-.0035,.0035])
+   for(const dv of [0,-.0035,.0035]){
+    const m=measure(du,dv,rotation);
+    m.rotation=rotation;m.du=du;m.dv=dv;
+    m.score-=(Math.abs(du)+Math.abs(dv))*55;
+    if(!best||m.score>best.score)best=m;
+   }
+ if(best.good<5)return {error:'Cantos encontrados; aproxime para ler os quadradinhos',
+  corners:anchors,orientationConfidence:best.good/20,boxes:[],results:[],
+  diagnostics:{digits:best.good,stage:'squares',score:best.score}};
+ const orientation=best.rotation,measured=measure(best.du,best.dv,orientation,true);
+ const orientationConfidence=best.good/20;
  const boxes=[],results=[];
  for(let q=0;q<10;q++){
-  const columns=[];
-  for(let c=0;c<2;c++){
-   const readings=[];
-   for(let d=0;d<(c===0?2:10);d++){
-    const p=point(cols[c]+q*step,valueRows(d),orientation);
-    const value=sample(mask,w,h,p.x,p.y,rx,ry);
-    readings.push({digit:d,fill:value,x:p.x,y:p.y});
-   }
-   const options=readings.map(r=>({digit:r.digit,x:r.x,y:r.y,fill:r.fill}));
-   readings.sort((a,b)=>b.fill-a.fill);
-   const first=readings[0],second=readings[1],confident=first.fill>=.69&&first.fill-second.fill>=.16;
-   columns.push({digit:confident?first.digit:null,candidate:first.digit,confidence:first.fill-second.fill,
-     x:first.x,y:first.y,fill:first.fill,options});
-  }
+  const columns=measured.rows[q];
   const value=columns.every(c=>c.digit!==null)?columns[0].digit*10+columns[1].digit:null;
   const valid=value!==null&&value<=15;
   results.push({columns,value:valid?value:null,rawValue:value,valid,error:value>15?'Somatória acima de 15':null});
@@ -282,16 +339,26 @@ function locate(mask,w,h,anchors){
   const xs=quad.map(p=>p.x),ys=quad.map(p=>p.y);
   boxes.push({quad,x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)});
  }
- return {boxes,results,corners:anchors,orientation,orientationConfidence:confidence};
+ return {boxes,results,corners:anchors,orientation,orientationConfidence,
+  diagnostics:{digits:best.good,stage:'answers',score:best.score}};
 }
 function decode(input){
  const w=input.width,h=input.height;
  const binary=binaryFromRGBA(input);
- const detection=detectCorners(binary,w,h);
- if(!detection.corners)return {error:'Ajuste os quatro marcadores dentro do guia',boxes:[],results:[],markersFound:detection.count,markerPoints:detection.points};
- const corners=detection.corners;
- const res=locate(binary,w,h,corners);
- return {...res,markersFound:4,markerPoints:corners};
+ let corners=trackCorners(binary.gray,w,h,self.lastVerifiedCorners);
+ const tracked=!!corners;
+ if(!corners){
+  const detection=detectCorners(binary,w,h);
+  if(!detection.corners){
+   self.lastVerifiedCorners=null;
+   return {error:'Enquadre o cartão',boxes:[],results:[],markersFound:0,markerPoints:[]};
+  }
+  corners=detection.corners;
+ }
+ const result=locate(binary,w,h,corners);
+ if((result.diagnostics?.digits||0)>=9)self.lastVerifiedCorners=corners;
+ else if(tracked)self.lastVerifiedCorners=null;
+ return {...result,markersFound:4,markerPoints:corners,tracked};
 }
 self.onmessage=function(event){
  const data=event.data||{};
