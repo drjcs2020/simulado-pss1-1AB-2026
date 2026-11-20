@@ -52,18 +52,18 @@ function findNestedFinderCandidates(gray,w,h){
   return table[y1*stride+x1]-table[y0*stride+x1]-table[y1*stride+x0]+table[y0*stride+x0];
  };
  const result=[];
- const sizes=[8,10,12,14,16,18,20,23,26,30,34,38,44];
+ const sizes=[8,10,12,14,16,18,20,22,23,24,25,26,27,28,30,34,38,44];
  for(const size of sizes){
   if(size>Math.min(w,h)*.18)break;
   const ring=Math.max(1,Math.round(size/7));
-  const core=Math.max(ring+1,Math.round(size*2/7));
+  const core=Math.max(ring+1,Math.round(size*.34));
   const middle=size-2*ring,inner=size-2*core;
   if(inner<2)continue;
   const n=size*size,whiteCount=middle*middle-inner*inner;
   const variancePattern=whiteCount-whiteCount*whiteCount/n;
   const buckets=new Map();
   // Dense enough for 8-pixel markers, but leaves the camera/UI responsive.
-  const step=size<=14?2:3;
+  const step=size<=28?2:3;
   for(let y=0;y+size<h;y+=step)for(let x=0;x+size<w;x+=step){
    const outer=area(sums,x,y,x+size,y+size);
    const inside=area(sums,x+ring,y+ring,x+size-ring,y+size-ring);
@@ -76,7 +76,7 @@ function findNestedFinderCandidates(gray,w,h){
    const localVar=area(squares,x,y,x+size,y+size)-outer*outer/n;
    if(localVar<25)continue;
    const corr=(white-outer*whiteCount/n)/Math.sqrt(localVar*variancePattern);
-   if(corr<.73)continue;
+   if(corr<.69)continue;
    const cx=x+size/2,cy=y+size/2;
    const key=Math.floor(cx/Math.max(11,size*.75))+','+Math.floor(cy/Math.max(11,size*.75));
    const quality=1+corr*.47+Math.min(.12,contrast/380);
