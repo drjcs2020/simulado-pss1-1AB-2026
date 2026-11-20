@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Corretor PSS1">
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071e46"/><stop offset="1" stop-color="#0c3473"/></linearGradient>
+    <linearGradient id="green" x1="0" x2="1"><stop stop-color="#11ce55"/><stop offset="1" stop-color="#04a740"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#navy)"/>
+  <g fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" opacity=".97">
+    <path d="M105 139V113q0-12 12-12h35"/>
+    <path d="M360 101h35q12 0 12 12v26"/>
+    <path d="M105 291v26q0 12 12 12h35"/>
+    <path d="M360 329h35q12 0 12-12v-26"/>
+  </g>
+  <rect x="145" y="139" width="224" height="177" rx="18" fill="#fff"/>
+  <g fill="#122a50">
+    <rect x="166" y="158" width="37" height="37" rx="2"/>
+    <rect x="311" y="158" width="37" height="37" rx="2"/>
+    <rect x="166" y="262" width="37" height="37" rx="2"/>
+  </g>
+  <g fill="#fff"><rect x="175" y="167" width="19" height="19"/><rect x="320" y="167" width="19" height="19"/><rect x="175" y="271" width="19" height="19"/></g>
+  <g stroke="#183d77" stroke-width="4" fill="none">
+    <circle cx="223" cy="217" r="11"/><circle cx="257" cy="217" r="11"/><circle cx="291" cy="217" r="11"/><circle cx="325" cy="217" r="11"/>
+    <circle cx="223" cy="249" r="11"/><circle cx="257" cy="249" r="11"/><circle cx="291" cy="249" r="11"/><circle cx="325" cy="249" r="11"/>
+    <circle cx="223" cy="281" r="11"/><circle cx="257" cy="281" r="11"/><circle cx="291" cy="281" r="11"/><circle cx="325" cy="281" r="11"/>
+  </g>
+  <circle cx="291" cy="217" r="9" fill="#0bd34a"/><circle cx="223" cy="249" r="9" fill="#0bd34a"/><circle cx="325" cy="281" r="9" fill="#0bd34a"/>
+  <rect x="132" y="235" width="249" height="8" rx="4" fill="#00e860" opacity=".96"/>
+  <circle cx="365" cy="302" r="44" fill="#08bd4b" stroke="#fff" stroke-width="9"/>
+  <path d="m343 303 16 17 31-33" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="256" y="395" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="900" font-size="51" fill="#fff">Corretor</text>
+  <rect x="146" y="408" width="220" height="61" rx="30" fill="url(#green)"/>
+  <text x="256" y="453" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="46" font-weight="900" fill="#fff">PSS1</text>
+</svg>
