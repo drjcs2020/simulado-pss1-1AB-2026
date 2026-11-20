@@ -53,7 +53,7 @@ button:disabled{opacity:.4}button.secondary{background:#e8effa;color:#153d77;bor
 const params=new URLSearchParams(location.search),turma=params.get('turma')||'',num=Number(params.get('num')),tipo=params.get('tipo')||'';
 const $=id=>document.getElementById(id);
 const video=$('video'),overlay=$('overlay'),ctx=overlay.getContext('2d');
-const workerUrl='omr-live-decimal-worker.js?v=20261120-homography3';
+const workerUrl='omr-live-decimal-worker.js?v=20261120-instant1';
 const state={stream:null,worker:null,timer:null,inFlight:false,seq:0,token:0,
  results:null,markerPoints:null,markerCount:0,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera',
  recentValues:Array(10).fill(null),recentCounts:Array(10).fill(0)};
@@ -163,7 +163,7 @@ function drawOverlay(){
 function guidanceFor(result){
  const count=Math.max(0,Math.min(4,Number(result?.markersFound)||0));
  if(count<4){
-  if(count===0)return '0/4 cantos · Encaixe os 4 quadrados pretos nas marcas amarelas';
+  if(count===0)return 'Aponte para o cartão completo · buscando respostas';
   return count+'/4 cantos · Alinhe os outros quadrados com o guia';
  }
  return result.error?'4/4 cantos · Ajuste levemente a distância':'4/4 cantos · Cartão localizado';
@@ -252,7 +252,7 @@ async function startCamera(){
   const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
   if(state.mode!=='camera'){stream.getTracks().forEach(t=>t.stop());return}
   state.stream=stream;video.srcObject=stream;await video.play();
-  inform('0/4 cantos · Ajuste a folha pelas marcas amarelas');
+  inform('Aponte para o cartão completo');
   readFrame();
  }catch(e){
   inform(e?.name==='NotAllowedError'?'Autorize a câmera nas permissões do navegador':String(e?.message||e));
@@ -300,7 +300,7 @@ function review(){
  window.scrollTo(0,0);
 }
 function goHome(){
- stopCamera();location.href='index.html?v=20261119-live2';
+ stopCamera();location.href='index.html?v=20261120-instant1';
 }
 $('reviewLive').onclick=review;
 $('exit').onclick=goHome;
