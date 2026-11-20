@@ -77,5 +77,6 @@ for(let y=0;y<75;y++)for(let x=0;x<80;x++){
  const i=(y*missing.width+x)*4;missing.pixels[i]=missing.pixels[i+1]=missing.pixels[i+2]=255;
 }
 self.onmessage({data:{action:'analyze',id:9,width:missing.width,height:missing.height,pixels:missing.pixels.buffer}});
+console.log('MISSING CORNER DIAGNOSTIC',JSON.stringify({error:self.last.result.error,markers:self.last.result.markersFound,tracked:self.last.result.tracked,corners:self.last.result.corners,raw:self.last.result.results?.map(r=>r.rawValue),digits:self.last.result.diagnostics?.digits}));
 assert.ok(self.last.result.error,'four markers required; never invent answers');
 console.log('PASS marcador ausente não cria notas');
