@@ -53,9 +53,9 @@ button:disabled{opacity:.4}button.secondary{background:#e8effa;color:#153d77;bor
 const params=new URLSearchParams(location.search),turma=params.get('turma')||'',num=Number(params.get('num')),tipo=params.get('tipo')||'';
 const $=id=>document.getElementById(id);
 const video=$('video'),overlay=$('overlay'),ctx=overlay.getContext('2d');
-const workerUrl='omr-live-decimal-worker.js?v=20261119-live2';
+const workerUrl='omr-live-decimal-worker.js?v=20261120-guide1';
 const state={stream:null,worker:null,timer:null,inFlight:false,seq:0,token:0,
- results:null,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera'};
+ results:null,markerPoints:null,markerCount:0,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera'};
 $('student').textContent=turma+' · Nº '+String(num).padStart(2,'0')+' · Tipo '+tipo;
 $('reviewStudent').textContent='Turma '+turma+' · Chamada '+String(num).padStart(2,'0')+' · Prova '+tipo;
 const validIdentity=['1A','1B'].includes(turma)&&['A','B','C'].includes(tipo)&&Number.isSafeInteger(num)&&num>=1;
@@ -77,16 +77,75 @@ function mapPoint(p){
  const rect=mapRect();if(!rect)return null;
  return {x:rect.left+p.x*rect.scale,y:rect.top+p.y*rect.scale};
 }
+function guideRect(){
+ const viewportWidth=overlay.clientWidth,viewportHeight=overlay.clientHeight;
+ const videoWidth=video.videoWidth,videoHeight=video.videoHeight;
+ const scale=videoWidth&&videoHeight?Math.min(viewportWidth/videoWidth,viewportHeight/videoHeight):1;
+ const visibleWidth=videoWidth?videoWidth*scale:viewportWidth;
+ const visibleHeight=videoHeight?videoHeight*scale:viewportHeight;
+ const visibleLeft=(viewportWidth-visibleWidth)/2,visibleTop=(viewportHeight-visibleHeight)/2;
+ // Mesma proporção dos 4 marcadores na folha impressa: aprox. 1,52:1.
+ const width=Math.min(visibleWidth*.86,visibleHeight*.59*1.52);
+ const height=width/1.52;
+ const x=visibleLeft+(visibleWidth-width)/2;
+ const centerY=visibleTop+visibleHeight*.50;
+ const y=Math.max(visibleTop+visibleHeight*.17,
+             Math.min(centerY-height/2,visibleTop+visibleHeight*.80-height));
+ return {x,y,width,height};
+}
+function drawGuide(){
+ const rect=guideRect(),{x,y,width,height}=rect;
+ const length=Math.min(34,Math.max(18,width*.09));
+ ctx.save();
+ ctx.strokeStyle='rgba(250,205,64,.62)';
+ ctx.lineWidth=1.5;
+ ctx.setLineDash([9,10]);
+ ctx.strokeRect(x,y,width,height);
+ ctx.setLineDash([]);
+ for(const corner of [
+  {x,y,dx:1,dy:1},
+  {x:x+width,y,dx:-1,dy:1},
+  {x,y:y+height,dx:1,dy:-1},
+  {x:x+width,y:y+height,dx:-1,dy:-1}
+ ]){
+  ctx.beginPath();
+  ctx.strokeStyle='#101b2b';
+  ctx.lineWidth=7;
+  ctx.moveTo(corner.x+corner.dx*length,corner.y);
+  ctx.lineTo(corner.x,corner.y);
+  ctx.lineTo(corner.x,corner.y+corner.dy*length);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.strokeStyle='#ffcf45';
+  ctx.lineWidth=4;
+  ctx.moveTo(corner.x+corner.dx*length,corner.y);
+  ctx.lineTo(corner.x,corner.y);
+  ctx.lineTo(corner.x,corner.y+corner.dy*length);
+  ctx.stroke();
+ }
+ ctx.restore();
+ return rect;
+}
 function drawOverlay(){
  const w=overlay.clientWidth,h=overlay.clientHeight;
  if(overlay.width!==w||overlay.height!==h){overlay.width=w;overlay.height=h}
  ctx.clearRect(0,0,w,h);
- const result=state.results;
- if(state.mode!=='camera'||!result?.corners||!result.boxes?.length)return;
- for(const id of ['tl','tr','bl','br']){
-  const p=mapPoint(result.corners[id]);if(!p)continue;
-  ctx.strokeStyle='#36ed8f';ctx.lineWidth=3;ctx.strokeRect(p.x-9,p.y-9,18,18);
+ if(state.mode!=='camera')return;
+ // Referências amarelas são SEMPRE visíveis, até com 0 marcadores encontrados.
+ drawGuide();
+ const points=state.markerPoints;
+ if(points){
+  const corners=Array.isArray(points)?points:Object.values(points).filter(p=>p&&typeof p.x==='number');
+  for(const marker of corners){
+   const p=mapPoint(marker);
+   if(!p)continue;
+   ctx.beginPath();
+   ctx.strokeStyle='#28f183';ctx.lineWidth=4;
+   ctx.arc(p.x,p.y,12,0,Math.PI*2);ctx.stroke();
+  }
  }
+ const result=state.results;
+ if(!result?.corners||!result.boxes?.length)return;
  for(let q=0;q<10;q++){
   const entry=result.results[q],cols=entry?.columns||[];
   const finalValue=state.edited.has(q)?state.marks[q]:entry?.rawValue;
@@ -100,11 +159,30 @@ function drawOverlay(){
   }
  }
 }
+function guidanceFor(result){
+ const count=Math.max(0,Math.min(4,Number(result?.markersFound)||0));
+ if(count<4){
+  if(count===0)return '0/4 cantos · Encaixe os 4 quadrados pretos nas marcas amarelas';
+  return count+'/4 cantos · Alinhe os outros quadrados com o guia';
+ }
+ const corners=result.corners;
+ if(corners&&video.videoWidth){
+  const rect=mapRect(),reference=guideRect();
+  if(rect){
+   const width=Math.hypot(corners.tr.x-corners.tl.x,corners.tr.y-corners.tl.y)*rect.scale;
+   if(width<reference.width*.70)return '4/4 cantos · Aproxime um pouco o cartão';
+   if(width>reference.width*1.25)return '4/4 cantos · Afaste um pouco o cartão';
+  }
+ }
+ return result.error?'4/4 cantos · Mantenha a grade inteira visível':'4/4 cantos · Cartão localizado';
+}
 function applyReading(result){
  if(state.mode!=='camera')return;
+ state.markerCount=Math.max(0,Math.min(4,Number(result?.markersFound)||0));
+ state.markerPoints=result?.markerPoints||null;
  if(!result||result.error||result.markersFound!==4){
   state.results=null;state.signature='';state.stableCount=0;
-  inform(result?.error||'Enquadre os quatro cantos do cartão');
+  inform(guidanceFor(result));
   drawOverlay();return;
  }
  state.results=result;
@@ -117,7 +195,7 @@ function applyReading(result){
  }
  const valid=values.filter(v=>v!==null).length;
  const bad=result.results.findIndex(r=>r.rawValue!==null&&r.rawValue!==undefined&&r.rawValue>15);
- inform(valid+'/10 lidas'+(bad>=0?' · Q'+String(bad+1).padStart(2,'0')+' = '+result.results[bad].rawValue+' (inválida)':''));
+ inform(guidanceFor(result)+' · '+valid+'/10 respostas'+(bad>=0?' · Q'+String(bad+1).padStart(2,'0')+'='+result.results[bad].rawValue+' inválida':''));
  drawOverlay();
 }
 function schedule(ms){
@@ -163,7 +241,7 @@ function readFrame(){
 async function startCamera(){
  stopCamera();
  state.mode='camera';$('reviewPanel').hidden=true;$('camera').hidden=false;
- state.results=null;state.signature='';state.stableCount=0;
+ state.results=null;state.markerPoints=null;state.markerCount=0;state.signature='';state.stableCount=0;
  drawOverlay();inform('Abrindo câmera…');
  if(!validIdentity){inform('Identificação inválida. Volte e leia o QR da prova.');return}
  try{
@@ -171,7 +249,7 @@ async function startCamera(){
   const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
   if(state.mode!=='camera'){stream.getTracks().forEach(t=>t.stop());return}
   state.stream=stream;video.srcObject=stream;await video.play();
-  inform('Enquadre os quatro marcadores do cartão');
+  inform('0/4 cantos · Ajuste a folha pelas marcas amarelas');
   readFrame();
  }catch(e){
   inform(e?.name==='NotAllowedError'?'Autorize a câmera nas permissões do navegador':String(e?.message||e));
