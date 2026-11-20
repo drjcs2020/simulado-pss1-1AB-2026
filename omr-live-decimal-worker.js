@@ -25,8 +25,68 @@ function binaryFromRGBA(input){
   const between=count*(gray.length-count)*(a-b)*(a-b);
   if(between>max){max=between;threshold=t}
  }
- for(let i=0;i<gray.length;i++)gray[i]=gray[i]<=threshold?1:0;
- return gray;
+ const mask=new Uint8Array(w*h);
+ for(let i=0;i<gray.length;i++)mask[i]=gray[i]<=threshold?1:0;
+ // Keep grayscale: weak markers on blue/lit screens disappear in a global threshold.
+ mask.gray=gray;
+ return mask;
+}
+
+function findNestedFinderCandidates(gray,w,h){
+ // Correlation against the *actual* concentric 7x7 target:
+ // dark perimeter, light ring, dark middle. Independent of overall brightness.
+ // Uses integral images, so evaluating each size/position takes constant time.
+ const stride=w+1,length=stride*(h+1);
+ const sums=new Float64Array(length),squares=new Float64Array(length);
+ for(let y=0;y<h;y++){
+  let sum=0,sum2=0;
+  const out=(y+1)*stride,prev=y*stride;
+  for(let x=0;x<w;x++){
+   const v=gray[y*w+x];
+   sum+=v;sum2+=v*v;
+   sums[out+x+1]=sums[prev+x+1]+sum;
+   squares[out+x+1]=squares[prev+x+1]+sum2;
+  }
+ }
+ const area=(table,x0,y0,x1,y1)=>{
+  return table[y1*stride+x1]-table[y0*stride+x1]-table[y1*stride+x0]+table[y0*stride+x0];
+ };
+ const result=[];
+ const sizes=[8,10,12,14,16,18,20,23,26,30,34,38,44];
+ for(const size of sizes){
+  if(size>Math.min(w,h)*.18)break;
+  const ring=Math.max(1,Math.round(size/7));
+  const core=Math.max(ring+1,Math.round(size*2/7));
+  const middle=size-2*ring,inner=size-2*core;
+  if(inner<2)continue;
+  const n=size*size,whiteCount=middle*middle-inner*inner;
+  const variancePattern=whiteCount-whiteCount*whiteCount/n;
+  const buckets=new Map();
+  // Dense enough for 8-pixel markers, but leaves the camera/UI responsive.
+  const step=size<=14?2:3;
+  for(let y=0;y+size<h;y+=step)for(let x=0;x+size<w;x+=step){
+   const outer=area(sums,x,y,x+size,y+size);
+   const inside=area(sums,x+ring,y+ring,x+size-ring,y+size-ring);
+   const center=area(sums,x+core,y+core,x+size-core,y+size-core);
+   const white=inside-center;
+   const black=(outer-white)/(n-whiteCount);
+   const light=white/whiteCount;
+   const contrast=light-black;
+   if(contrast<11)continue;
+   const localVar=area(squares,x,y,x+size,y+size)-outer*outer/n;
+   if(localVar<25)continue;
+   const corr=(white-outer*whiteCount/n)/Math.sqrt(localVar*variancePattern);
+   if(corr<.73)continue;
+   const cx=x+size/2,cy=y+size/2;
+   const key=Math.floor(cx/Math.max(11,size*.75))+','+Math.floor(cy/Math.max(11,size*.75));
+   const quality=1+corr*.47+Math.min(.12,contrast/380);
+   const found={x:cx,y:cy,size,quality,correlation:corr,contrast};
+   const prior=buckets.get(key);
+   if(!prior||prior.correlation<corr)buckets.set(key,found);
+  }
+  result.push(...buckets.values());
+ }
+ return result;
 }
 function detectCorners(mask,w,h){
  // Procura padrões quadrados por TODA a imagem, não apenas nas bordas do vídeo.
@@ -75,9 +135,17 @@ function detectCorners(mask,w,h){
   const quality=edgeRate+(1-centerRate)*.3-Math.abs(aspect-1)*.4;
   candidates.push({x:cx,y:cy,size,quality});
  }
- // Marcadores reais têm dimensões semelhantes e formam um retângulo amplo.
- candidates.sort((a,b)=>b.size-a.size||b.quality-a.quality);
- const possible=candidates.slice(0,70);
+ // Include real finder patterns even if global Otsu discarded a faint corner.
+ candidates.push(...findNestedFinderCandidates(mask.gray,w,h));
+ // Deduplicate markers found at neighboring template sizes.
+ candidates.sort((a,b)=>(b.correlation||0)-(a.correlation||0)||b.quality-a.quality);
+ const unique=[];
+ for(const candidate of candidates){
+  if(unique.some(c=>Math.hypot(c.x-candidate.x,c.y-candidate.y)<Math.max(5,Math.min(c.size,candidate.size)*.35)))continue;
+  unique.push(candidate);
+ }
+ // Do not truncate by pixel size: QR finder patterns can be larger.
+ const possible=unique.slice(0,100);
  let best=null,bestScore=-Infinity;
  function nearest(x,y,size,excludeA,excludeB){
   let winner=null,smallest=Infinity;
@@ -100,28 +168,30 @@ function detectCorners(mask,w,h){
   const tr=nearest(br.x,tl.y,size,i,j);
   const bl=nearest(tl.x,br.y,size,i,j);
   if(!tr||!bl||tr.id===bl.id)continue;
-  const tolerance=Math.max(dx,dy)*.21;
+  // The four corner fiducials form one page. A finder *inside the QR code*
+  // can look identical, but cannot satisfy the expected page geometry.
+  const tolerance=Math.max(dx,dy)*.145;
   if(tr.distance>tolerance||bl.distance>tolerance)continue;
+  const topWidth=Math.hypot(tr.x-tl.x,tr.y-tl.y);
+  const bottomWidth=Math.hypot(br.x-bl.x,br.y-bl.y);
+  const leftHeight=Math.hypot(bl.x-tl.x,bl.y-tl.y);
+  const rightHeight=Math.hypot(br.x-tr.x,br.y-tr.y);
+  if(Math.max(topWidth,bottomWidth)/Math.min(topWidth,bottomWidth)>1.24)continue;
+  if(Math.max(leftHeight,rightHeight)/Math.min(leftHeight,rightHeight)>1.24)continue;
+  const ratio=(topWidth+bottomWidth)/(leftHeight+rightHeight);
+  if(ratio<.50||ratio>2.6)continue;
   const ratios=[tl.size,tr.size,bl.size,br.size];
   if(Math.max(...ratios)/Math.min(...ratios)>1.7)continue;
   const polygon=(dx*dy)/(w*h);
   const geometry=(tr.distance+bl.distance)/(dx+dy);
   const quality=(tl.quality+tr.quality+bl.quality+br.quality)/4;
-  const score=polygon*8+quality-geometry*2;
+  const score=polygon*8+quality-geometry*5;
   if(score>bestScore){bestScore=score;best={tl,tr,bl,br,horizontal:dx,vertical:dy}}
  }
  if(best)return {corners:best,count:4,points:best};
- // Mostrar pontos parciais sem anunciar um reconhecimento completo.
- // Escolhe somente marcadores plausíveis, semelhantes em tamanho e separados.
- const partial=[];
- const largest=possible[0]?.size||0;
- const keep=possible.filter(p=>p.size>=Math.max(minSize,largest*.68)&&p.quality>.72);
- for(const p of keep){
-  if(partial.length===4)break;
-  if(partial.every(x=>Math.hypot(x.x-p.x,x.y-p.y)>Math.max(x.size,p.size)*2.4))
-   partial.push({x:p.x,y:p.y,size:p.size});
- }
- return {corners:null,count:Math.min(3,partial.length),points:partial};
+ // Candidates are not validated fiducials. Never display them as 3/4 corners
+ // or put green rings on QR-code finder patterns.
+ return {corners:null,count:0,points:[]};
 }
 function sample(mask,w,h,x,y,rx,ry){
  const xa=Math.max(0,Math.floor(x-rx)),xb=Math.min(w-1,Math.ceil(x+rx));
@@ -135,10 +205,24 @@ function sample(mask,w,h,x,y,rx,ry){
  return total?filled/total:0;
 }
 function locate(mask,w,h,anchors){
+ // Perspective homography: simple bilinear interpolation was shifted by up
+ // to 15 pixels in the user's angled photo — more than a filled square width.
  const cornerPoint=(u,v)=>{
-  const a=anchors;
-  return {x:a.tl.x*(1-u)*(1-v)+a.tr.x*u*(1-v)+a.bl.x*(1-u)*v+a.br.x*u*v,
-          y:a.tl.y*(1-u)*(1-v)+a.tr.y*u*(1-v)+a.bl.y*(1-u)*v+a.br.y*u*v};
+  const {tl,tr,bl,br}=anchors;
+  const dx1=tr.x-br.x,dy1=tr.y-br.y;
+  const dx2=bl.x-br.x,dy2=bl.y-br.y;
+  const dx3=tl.x-tr.x+br.x-bl.x,dy3=tl.y-tr.y+br.y-bl.y;
+  const determinant=dx1*dy2-dx2*dy1;
+  if(Math.abs(determinant)<1e-6)return {
+   x:tl.x*(1-u)*(1-v)+tr.x*u*(1-v)+bl.x*(1-u)*v+br.x*u*v,
+   y:tl.y*(1-u)*(1-v)+tr.y*u*(1-v)+bl.y*(1-u)*v+br.y*u*v
+  };
+  const g=(dx3*dy2-dx2*dy3)/determinant;
+  const h=(dx1*dy3-dx3*dy1)/determinant;
+  const a=tr.x-tl.x+g*tr.x,b=bl.x-tl.x+h*bl.x;
+  const d=tr.y-tl.y+g*tr.y,e=bl.y-tl.y+h*bl.y;
+  const scale=1+g*u+h*v;
+  return {x:(a*u+b*v+tl.x)/scale,y:(d*u+e*v+tl.y)/scale};
  };
  const orient=(u,v,rotation)=>{
   if(rotation===180)return [1-u,1-v];
