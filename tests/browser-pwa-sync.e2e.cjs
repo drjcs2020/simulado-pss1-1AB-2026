@@ -131,6 +131,17 @@ async function submitExample(page){
   assert.equal(store.postAttempts,1,'subsequent reconnect must not duplicate');
   assert.deepEqual(installed.errors,[]);
   console.log('PASS: interrupted connection, persisted note, automatic resend and Google Sheets confirmation');
+  // A correção de teste pode ser excluída na planilha por uma implantação Apps Script:
+  // o aplicativo deve limpar cache e quadradinhos após "Atualizar planilha".
+  const resetRow=store.remote['1A'][0];resetRow.Status='Pendente';
+  for(let q=1;q<=10;q++)delete resetRow['Q'+String(q).padStart(2,'0')];
+  await page.locator('#tabGrades').click();
+  await page.locator('#refresh').click();
+  await page.waitForFunction(()=>document.querySelector('#studentMeta')?.textContent?.includes('Pendente'),null,{timeout:12000});
+  await page.locator('#tabCorrect').click();
+  assert.match(await page.locator('.question').first().locator('.qname').innerText(),/Soma 00/);
+  assert.equal((await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('pss1_2026_db'))['1A']).length)),0);
+  console.log('PASS: reset remoto marca aluno Pendente e limpa as dez somatórias na interface');
   await context.close();
 
   const lost=await createScenario(browser,url,{online:true,dropPostResponse:true});
