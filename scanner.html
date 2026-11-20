@@ -224,8 +224,11 @@ function readFrame(){
  if(state.inFlight){schedule(60);return}
  if(!video.videoWidth||!video.videoHeight||video.readyState<2){schedule(330);return}
  const scale=Math.min(640/video.videoWidth,720/video.videoHeight,1);
- processing.width=Math.max(240,Math.round(video.videoWidth*scale));
- processing.height=Math.max(180,Math.round(video.videoHeight*scale));
+ const width=Math.max(240,Math.round(video.videoWidth*scale));
+ const height=Math.max(180,Math.round(video.videoHeight*scale));
+ // Avoid reallocating the canvas on every camera frame.
+ if(processing.width!==width)processing.width=width;
+ if(processing.height!==height)processing.height=height;
  try{
   const p=processing.getContext('2d',{willReadFrequently:true});
   p.drawImage(video,0,0,processing.width,processing.height);
