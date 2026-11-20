@@ -170,14 +170,14 @@ function detectCorners(mask,w,h){
   if(!tr||!bl||tr.id===bl.id)continue;
   // The four corner fiducials form one page. A finder *inside the QR code*
   // can look identical, but cannot satisfy the expected page geometry.
-  const tolerance=Math.max(dx,dy)*.145;
+  const tolerance=Math.max(dx,dy)*.195;
   if(tr.distance>tolerance||bl.distance>tolerance)continue;
   const topWidth=Math.hypot(tr.x-tl.x,tr.y-tl.y);
   const bottomWidth=Math.hypot(br.x-bl.x,br.y-bl.y);
   const leftHeight=Math.hypot(bl.x-tl.x,bl.y-tl.y);
   const rightHeight=Math.hypot(br.x-tr.x,br.y-tr.y);
-  if(Math.max(topWidth,bottomWidth)/Math.min(topWidth,bottomWidth)>1.24)continue;
-  if(Math.max(leftHeight,rightHeight)/Math.min(leftHeight,rightHeight)>1.24)continue;
+  if(Math.max(topWidth,bottomWidth)/Math.min(topWidth,bottomWidth)>1.38)continue;
+  if(Math.max(leftHeight,rightHeight)/Math.min(leftHeight,rightHeight)>1.42)continue;
   const ratio=(topWidth+bottomWidth)/(leftHeight+rightHeight);
   if(ratio<.50||ratio>2.6)continue;
   const ratios=[tl.size,tr.size,bl.size,br.size];
