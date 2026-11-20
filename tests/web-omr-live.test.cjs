@@ -68,6 +68,10 @@ function scan(name,image,expected=answers){
  console.log('PASS',name,raw.join(','),'invalid Q06=',result.results[5].error);
 }
 scan('Cartão de dezena/unidade em paisagem',syntheticCard());
+const trackedAt=performance.now();
+scan('Cartão rastreado no quadro seguinte',syntheticCard());
+assert.equal(self.last.result.tracked,true,'Segundo quadro deve rastrear os cantos sem busca completa');
+console.log('PASS rastreamento contínuo em',Math.round(performance.now()-trackedAt),'ms');
 scan('Cartão de menor contraste',syntheticCard(true));
 scan('Cartão girado 90 graus',rotateCard(syntheticCard(),90));
 scan('Cartão girado 180 graus',rotateCard(syntheticCard(),180));
