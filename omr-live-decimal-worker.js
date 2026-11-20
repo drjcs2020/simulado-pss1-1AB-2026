@@ -182,6 +182,10 @@ function detectCorners(mask,w,h){
   if(ratio<.50||ratio>2.6)continue;
   const ratios=[tl.size,tr.size,bl.size,br.size];
   if(Math.max(...ratios)/Math.min(...ratios)>1.7)continue;
+  // The corner fiducials are proportionally larger than digit boxes.
+  // This prevents ten small response boxes forming four fake corners.
+  const markerScale=Math.min(...ratios)/Math.max(dx,dy);
+  if(markerScale<.031||markerScale>.11)continue;
   const polygon=(dx*dy)/(w*h);
   const geometry=(tr.distance+bl.distance)/(dx+dy);
   const quality=(tl.quality+tr.quality+bl.quality+br.quality)/4;
