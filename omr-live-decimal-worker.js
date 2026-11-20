@@ -381,6 +381,14 @@ function decode(input){
   corners=detection.corners;
  }
  const result=locate(binary,w,h,corners);
+ const readable=(result.results||[]).filter(r=>r.valid).length;
+ // Finder-like squares inside the answer grid can form a false quadrilateral.
+ // A page shape alone never counts as a confirmed card without any 2-digit answers.
+ if(!readable){
+  self.lastVerifiedCorners=null;
+  return {error:'Grade de respostas ainda não identificada',boxes:[],results:[],
+    markersFound:0,markerPoints:[],tracked:false};
+ }
  if((result.diagnostics?.digits||0)>=9)self.lastVerifiedCorners=corners;
  else if(tracked)self.lastVerifiedCorners=null;
  return {...result,markersFound:4,markerPoints:corners,tracked};
