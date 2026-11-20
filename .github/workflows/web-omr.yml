@@ -9,6 +9,7 @@ on:
       - 'android-native/tests/fixtures/printed-matrix.ts'
       - 'tests/web-omr.test.cjs'
       - 'tests/web-omr-live.test.cjs'
+      - 'tests/web-omr-perspective.test.cjs'
       - '.github/workflows/web-omr.yml'
   workflow_dispatch:
 jobs:
@@ -21,3 +22,4 @@ jobs:
           node-version: '22'
       - run: node tests/web-omr.test.cjs
       - run: node tests/web-omr-live.test.cjs
+      - run: node tests/web-omr-perspective.test.cjs
