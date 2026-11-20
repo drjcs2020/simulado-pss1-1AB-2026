@@ -179,7 +179,9 @@ function detectCorners(mask,w,h){
   if(Math.max(topWidth,bottomWidth)/Math.min(topWidth,bottomWidth)>1.38)continue;
   if(Math.max(leftHeight,rightHeight)/Math.min(leftHeight,rightHeight)>1.42)continue;
   const ratio=(topWidth+bottomWidth)/(leftHeight+rightHeight);
-  if(ratio<.50||ratio>2.6)continue;
+  // Actual outer markers form roughly a 1.5:1 page (or 2:3 rotated).
+  // A row of digit squares has a much wider and shallower ratio.
+  if(ratio<.48||ratio>2.10)continue;
   const ratios=[tl.size,tr.size,bl.size,br.size];
   if(Math.max(...ratios)/Math.min(...ratios)>1.7)continue;
   // The corner fiducials are proportionally larger than digit boxes.
