@@ -55,7 +55,8 @@ const $=id=>document.getElementById(id);
 const video=$('video'),overlay=$('overlay'),ctx=overlay.getContext('2d');
 const workerUrl='omr-live-decimal-worker.js?v=20261120-homography3';
 const state={stream:null,worker:null,timer:null,inFlight:false,seq:0,token:0,
- results:null,markerPoints:null,markerCount:0,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera'};
+ results:null,markerPoints:null,markerCount:0,marks:Array(10).fill(null),edited:new Set(),signature:'',stableCount:0,lastError:'',mode:'camera',
+ recentValues:Array(10).fill(null),recentCounts:Array(10).fill(0)};
 $('student').textContent=turma+' · Nº '+String(num).padStart(2,'0')+' · Tipo '+tipo;
 $('reviewStudent').textContent='Turma '+turma+' · Chamada '+String(num).padStart(2,'0')+' · Prova '+tipo;
 const validIdentity=['1A','1B'].includes(turma)&&['A','B','C'].includes(tipo)&&Number.isSafeInteger(num)&&num>=1;
@@ -165,16 +166,7 @@ function guidanceFor(result){
   if(count===0)return '0/4 cantos · Encaixe os 4 quadrados pretos nas marcas amarelas';
   return count+'/4 cantos · Alinhe os outros quadrados com o guia';
  }
- const corners=result.corners;
- if(corners&&video.videoWidth){
-  const rect=mapRect(),reference=guideRect();
-  if(rect){
-   const width=Math.hypot(corners.tr.x-corners.tl.x,corners.tr.y-corners.tl.y)*rect.scale;
-   if(width<reference.width*.70)return '4/4 cantos · Aproxime um pouco o cartão';
-   if(width>reference.width*1.25)return '4/4 cantos · Afaste um pouco o cartão';
-  }
- }
- return result.error?'4/4 cantos · Mantenha a grade inteira visível':'4/4 cantos · Cartão localizado';
+ return result.error?'4/4 cantos · Ajuste levemente a distância':'4/4 cantos · Cartão localizado';
 }
 function applyReading(result){
  if(state.mode!=='camera')return;
@@ -190,8 +182,15 @@ function applyReading(result){
  const signature=values.join('|');
  state.stableCount=state.signature===signature?state.stableCount+1:1;
  state.signature=signature;
- if(state.stableCount>=2){
-  for(let q=0;q<10;q++)if(!state.edited.has(q))state.marks[q]=values[q];
+ // Show the FIRST confident reading immediately. Require repetition only
+ // before changing a previously accepted value, preventing visual jitter.
+ for(let q=0;q<10;q++){
+  if(state.edited.has(q)||values[q]===null)continue;
+  const value=values[q];
+  if(state.recentValues[q]===value)state.recentCounts[q]++;
+  else{state.recentValues[q]=value;state.recentCounts[q]=1}
+  if(state.marks[q]===null||state.marks[q]===value||state.recentCounts[q]>=2)
+   state.marks[q]=value;
  }
  const valid=values.filter(v=>v!==null).length;
  const bad=result.results.findIndex(r=>r.rawValue!==null&&r.rawValue!==undefined&&r.rawValue>15);
@@ -210,7 +209,7 @@ function ensureWorker(){
   state.inFlight=false;
   if(msg.status==='ok')applyReading(msg.result);
   else inform('Erro na leitura: '+String(msg.message||'processamento'));
-  schedule(330);
+  schedule(65);
  };
  worker.onerror=e=>{
   state.inFlight=false;
@@ -222,7 +221,7 @@ function ensureWorker(){
 }
 function readFrame(){
  if(state.mode!=='camera'||!state.stream)return;
- if(state.inFlight){schedule(180);return}
+ if(state.inFlight){schedule(60);return}
  if(!video.videoWidth||!video.videoHeight||video.readyState<2){schedule(330);return}
  const scale=Math.min(640/video.videoWidth,720/video.videoHeight,1);
  processing.width=Math.max(240,Math.round(video.videoWidth*scale));
@@ -242,6 +241,7 @@ async function startCamera(){
  stopCamera();
  state.mode='camera';$('reviewPanel').hidden=true;$('camera').hidden=false;
  state.results=null;state.markerPoints=null;state.markerCount=0;state.signature='';state.stableCount=0;
+ state.recentValues.fill(null);state.recentCounts.fill(0);
  drawOverlay();inform('Abrindo câmera…');
  if(!validIdentity){inform('Identificação inválida. Volte e leia o QR da prova.');return}
  try{
@@ -288,7 +288,7 @@ function review(){
  // mesmo que ainda não tenham sido repetidas por dois frames.
  if(state.results?.results?.length===10){
   state.results.results.forEach((entry,q)=>{
-   if(!state.edited.has(q))state.marks[q]=entry.valid?entry.value:null;
+   if(!state.edited.has(q)&&state.marks[q]===null&&entry.valid)state.marks[q]=entry.value;
   });
  }
  stopCamera();state.mode='review';
